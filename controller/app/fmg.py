@@ -32,6 +32,18 @@ def mgmt_ip(topo) -> str:
     return topo["fortimanager"]["mgmt_ip"]
 
 
+def ensure_adom(log, rpc: JsonRpc, ad: str, desc: str):
+    """Eigen ADOM (FortiOS 7.6) voor het lab, zodat de devices niet in 'root' staan."""
+    try:
+        if rpc.get(f"/dvmdb/adom/{ad}"):
+            log(f"[{desc}] ADOM {ad} bestaat al")
+            return
+    except RpcError:
+        pass
+    rpc.add("/dvmdb/adom", {"name": ad, "desc": "SD-WAN & FortiAI Lab", "os_ver": "7.0", "mr": 6, "state": 1})
+    log(f"[{desc}] ADOM {ad} aangemaakt (FortiOS 7.6)")
+
+
 def client(topo) -> JsonRpc:
     return JsonRpc(mgmt_ip(topo), "admin", get_state().get("admin_password", "")).login()
 
@@ -381,7 +393,10 @@ def provision(log, topo, devices=None) -> list[str]:
         problems.append(msg)
         log(f"⚠ {msg}")
 
+    if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager"):
+        time.sleep(30)
     rpc = wait_api(log, topo)
+    ensure_adom(log, rpc, adom(topo), "FortiManager")
     add_devices(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
         patch_sdwan_template(log, topo, rpc, warn)

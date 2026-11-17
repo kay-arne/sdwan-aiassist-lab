@@ -13,6 +13,8 @@ wat je tegenkwam.
   beide richtingen verdeeld (een ping ziet de ingestelde waarde), `rate` geldt per richting. Link-down is een echte link-down in de gast (QEMU
   `set_link`). Na het herstarten van een FortiGate-VM is de impairment weg (nieuwe tap); 'Alles herstellen' ruimt alles op.
 - **ISP-router start vóór de FortiGates**: de FortiFlex/FortiCare-licentie-activatie bij de eerste boot heeft DNS en internet nodig.
+- **Eigen ADOM `SDWAN-LAB`** (FortiOS 7.6) op FortiManager en FortiAnalyzer; niets staat in `root`. De controller zet de ADOM-modus aan
+  (`adom-status enable`, kort herstart van de services) en maakt de ADOM aan.
 - **FortiManager is de enige plek van configuratie**: de bootstrap (config drive) zet alleen interfaces, DNS, default routes, logging en de
   central-management-koppeling; FortiManager voegt de devices toe (`dvm/cmd/add/device`) en installeert daarna.
 - **FortiManager/FortiAnalyzer**: port1 uplink (internet voor FortiGuard en FortiAI), port2 lab-management (10.255.0.0/24).
@@ -23,14 +25,14 @@ wat je tegenkwam.
 ## Eerste-uitrol-checklist
 
 1. **Images**: FortiGate-VM, FortiManager en FortiAnalyzer KVM-`.qcow2` van dezelfde 7.6.x-lijn. FortiManager/FortiAnalyzer: controleer dat
-   de ADOM-versie (root) 7.6 is.
+   de ADOM-versie (SDWAN-LAB) 7.6 is.
 2. **Day-0 via console**: controleer in het joblog dat de console-login slaagt (de eerste login kan een verplichte wachtwoordwijziging
    vragen; de code behandelt dat). Mislukt het, voer dan handmatig de getoonde CLI in op `qm terminal <vmid>`.
 3. **Devices in FortiManager**: staat een FortiGate op `Unauthorized`/`Down`, controleer dat `port1` (10.255.0.x) bereikbaar is en
    `fgfm` toegestaan is; voeg anders in de GUI toe en draai **Opnieuw provisionen**.
 4. **Overlay template (meest versiegevoelig)**: de payload staat in *Lab → Gegenereerde config*. Het veld `topology` (`multi-hub`/`dual-hub`),
    de namen van de nodes en het scope-formaat verschillen per 7.6.x-build; de code probeert varianten en meldt wat mislukt. Bouw bij twijfel de
-   template één keer in de GUI en vergelijk met `GET /pm/config/adom/root/template/_sdwan_overlay/LAB-OVERLAY/sdwan/overlay`.
+   template één keer in de GUI en vergelijk met `GET /pm/config/adom/SDWAN-LAB/template/_sdwan_overlay/LAB-OVERLAY/sdwan/overlay`.
 5. **SD-WAN-template**: de health-check en rules worden in de door de orchestratie gegenereerde SD-WAN-template gezet (naam gezocht op
    `LAB-OVERLAY`). ISDB-namen (`Microsoft-Teams`, `Zoom-Zoom`, ...) moeten bestaan in jouw ISDB-versie; een onbekende naam geeft een waarschuwing.
 6. **Zones en policy package**: de controller leest de zone-namen uit de gegenereerde SD-WAN-template (`overlay`/`underlay`); controleer dat

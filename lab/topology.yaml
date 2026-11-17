@@ -38,14 +38,14 @@ fortimanager:
   memory: 8192
   data_disk_gb: 80         # extra datadisk (FortiManager heeft 'm nodig voor ADOM-data)
   mgmt_ip: 10.255.0.10     # port2 (lab-management); port1 = uplink (GUI, internet, FortiGuard/FortiAI)
-  adom: root
+  adom: SDWAN-LAB          # eigen ADOM voor dit lab (FortiOS 7.6); de controller maakt 'm aan
 fortianalyzer:
   name: faz
   cores: 4
   memory: 8192
   data_disk_gb: 150        # logs en indexen
   mgmt_ip: 10.255.0.11
-  adom: root
+  adom: SDWAN-LAB
 
 # --- FortiGates (FortiGate-VM, FortiOS 7.6) -----------------------------------------
 # port1 = lab-management, port2 = underlay A, port3 = underlay B, port4 = LAN (IP's: zie underlays)

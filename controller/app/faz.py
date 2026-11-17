@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from . import console
+from . import console, fmg
 from .config import get_state, netmask, segment_map, update_state
 from .jsonrpc import JsonRpc, RpcError
 
@@ -73,8 +73,11 @@ def wait_api(log, topo, timeout=900) -> JsonRpc:
 def authorize_devices(log, topo, warn):
     """De FortiGates sturen logs naar FortiAnalyzer; ze verschijnen als 'unregistered' en worden
     hier geautoriseerd (of, als dat al gebeurd is, overgeslagen)."""
+    if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiAnalyzer"):
+        time.sleep(30)
     rpc = wait_api(log, topo)
     ad = topo["fortianalyzer"]["adom"]
+    fmg.ensure_adom(log, rpc, ad, "FortiAnalyzer")
     try:
         known = {d["name"] for d in (rpc.get(f"/dvmdb/adom/{ad}/device") or [])}
     except RpcError:

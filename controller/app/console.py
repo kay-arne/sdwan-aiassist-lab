@@ -157,6 +157,23 @@ def enable_rpc(log, ip: str, password: str, label: str):
         cli.close()
 
 
+def ensure_adom_mode(log, ip: str, password: str, label: str):
+    """ADOM's staan standaard uit op FortiManager/FortiAnalyzer: aanzetten via de CLI (draait services opnieuw)."""
+    cli = Cli(ip, password)
+    try:
+        status = cli.run("get system status", timeout=30)
+        if re.search(r"Admin Domain Configuration\s*:\s*Enabled", status):
+            return False
+        log(f"[{label}] ADOM-modus is uit; aanzetten (adom-status enable)")
+        cli.run("config system global")
+        cli.run("set adom-status enable")
+        cli.run("end", timeout=30, answer="y")
+        time.sleep(45)
+        return True
+    finally:
+        cli.close()
+
+
 def wait_ssh(log, ip: str, password: str, label: str, timeout=900) -> Cli:
     deadline, last = time.time() + timeout, None
     while time.time() < deadline:
