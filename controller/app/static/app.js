@@ -214,7 +214,15 @@ async function loadFlex() {
   let rows;
   try { rows = await api("/api/fortiflex/entitlements"); } catch (e) { el.innerHTML = `<span class="warn">${esc(e.message)}</span>`; return; }
   const st = (s) => !s ? '<span class="tag absent">geen</span>' : `<span class="tag ${s === "ACTIVE" ? "ok" : s === "PENDING" ? "" : "warn"}">${esc(s)}</span>`;
-  const btn = (d, a, t, cls = "") => `<button class="small ${cls}" data-ffa="${a}" data-ffd="${d}">${t}</button>`;
+  const ICON = {
+    create: '<path d="M12 5v14M5 12h14"/>',
+    token: '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    reactivate: '<path d="M7 4l13 8-13 8z"/>',
+    unlink: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/><path d="M3 3l18 18"/>',
+  };
+  const TIP = { create: "Entitlement aanmaken", token: "Nieuwe token genereren", stop: "Stoppen (geen verbruik meer)", reactivate: "Reactiveren", unlink: "Ontkoppelen van de controller" };
+  const btn = (d, a, _t, cls = "") => `<button type="button" class="icon-btn ${cls}" data-ffa="${a}" data-ffd="${d}" data-tip="${TIP[a]}" aria-label="${TIP[a]}"><svg viewBox="0 0 24 24">${ICON[a]}</svg></button>`;
   el.innerHTML = `<table class="kv fftable"><tr><th>Apparaat</th><th>Entitlement</th><th>Status</th><th>Token</th><th></th></tr>${rows.map((r) => `<tr>
     <td>${esc(r.label)}</td><td class="mono">${esc(r.serial || "-")}</td><td>${st(r.status)}</td>
     <td>${r.token_status === "USED" ? "gebruikt" : r.token_status === "NOTUSED" ? "ongebruikt" : "-"}</td>
