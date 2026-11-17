@@ -69,6 +69,17 @@ def day0(log, topo):
     console.console_bootstrap(log, fm["vmid"], "FortiManager", st["admin_password"], cli)
 
 
+def prepare_network(log, topo):
+    """Uplink, route en DNS van port1 controleren/herstellen (nodig voor FortiFlex en FortiGuard)."""
+    st = get_state()
+    wan = st.get("wan") or {}
+    cidr = wan.get("fmg_ip", "")
+    plen = int(cidr.split("/")[1]) if "/" in cidr else 24
+    console.ensure_uplink(log, mgmt_ip(topo), st["admin_password"], "FortiManager", cidr.split("/")[0],
+                          console.netmask_of(plen), wan.get("gateway", ""),
+                          [d for d in (wan.get("dns1"), wan.get("dns2")) if d] or ["1.1.1.1"])
+
+
 def ensure_license(log, topo):
     st = get_state()
     token = st.get("fmg_fortiflex_token")
@@ -80,6 +91,7 @@ def ensure_license(log, topo):
     if not token:
         log("[FortiManager] geen FortiFlex-token: evaluatiemodus (importeer een .lic zelf via de GUI)")
         return
+    prepare_network(log, topo)
     console.activate_vm_license(log, mgmt_ip(topo), st["admin_password"], "FortiManager", token)
     time.sleep(120)
 
@@ -395,11 +407,7 @@ def provision(log, topo, devices=None) -> list[str]:
 
     if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager"):
         time.sleep(30)
-    wan = get_state().get("wan") or {}
-    cidr = wan.get("fmg_ip", "")
-    plen = int(cidr.split("/")[1]) if "/" in cidr else 24
-    console.ensure_uplink(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager", cidr.split("/")[0],
-                          console.netmask_of(plen), wan.get("gateway", ""))
+    prepare_network(log, topo)
     console.allow_vm_devices(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager")
     rpc = wait_api(log, topo)
     ensure_adom(log, rpc, adom(topo), "FortiManager")

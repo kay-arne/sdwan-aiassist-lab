@@ -186,23 +186,37 @@ def allow_vm_devices(log, ip: str, password: str, label: str):
         cli.close()
 
 
-def ensure_uplink(log, ip: str, password: str, label: str, uplink: str, mask: str, gateway: str):
+def ensure_uplink(log, ip: str, password: str, label: str, uplink: str, mask: str, gateway: str, dns=()):
     """port1 staat op FortiManager/FortiAnalyzer standaard op DHCP; zonder 'set mode static' werkt 'set ip' niet.
-    Controleert het uplink-IP en zet het (idempotent) goed, zodat ook bestaande VM's hersteld worden."""
+    Zet uplink-IP, default route en DNS (idempotent), en controleert of de VM de gateway en DNS bereikt.
+    Wordt vóór de licentie-activatie gedraaid, want FortiFlex vraagt internet en DNS."""
+    pat = r"\[ port1 \]\s*name: port1\s+status: \w+\s+mode: (\w+)\s+ip: (\S+)"
     cli = Cli(ip, password)
     try:
-        out = cli.run("get system interface", timeout=30)
-        m = re.search(r"\[ port1 \]\s*name: port1\s+status: \w+\s+mode: (\w+)\s+ip: (\S+)", out)
-        if m and m.group(1) == "static" and m.group(2) == uplink:
-            return
-        log(f"[{label}] port1 staat op {m.group(1) + ' ' + m.group(2) if m else '?'}; zetten op static {uplink}")
-        for line in ("config system interface", "edit port1", "set mode static", f"set ip {uplink} {mask}",
-                     "set allowaccess https ssh ping", "set status up", "next", "end",
-                     "config system route", "edit 1", f"set gateway {gateway}", "set device port1", "next", "end"):
+        m = re.search(pat, cli.run("get system interface", timeout=30))
+        if not (m and m.group(1) == "static" and m.group(2) == uplink):
+            log(f"[{label}] port1 staat op {m.group(1) + ' ' + m.group(2) if m else '?'}; zetten op static {uplink}")
+            for line in ("config system interface", "edit port1", "set mode static", f"set ip {uplink} {mask}",
+                         "set allowaccess https ssh ping", "set status up", "next", "end"):
+                cli.run(line)
+        for line in ("config system route", "edit 1", f"set gateway {gateway}", "set device port1", "next", "end"):
             cli.run(line)
-        out = cli.run("get system interface", timeout=30)
-        m = re.search(r"\[ port1 \]\s*name: port1\s+status: \w+\s+mode: (\w+)\s+ip: (\S+)", out)
-        log(f"[{label}] port1 nu: {m.group(1) + ' ' + m.group(2) if m else '?'}")
+        if dns:
+            cli.run("config system dns")
+            cli.run(f"set primary {dns[0]}")
+            if len(dns) > 1:
+                cli.run(f"set secondary {dns[1]}")
+            cli.run("end")
+        m = re.search(pat, cli.run("get system interface", timeout=30))
+        log(f"[{label}] port1: {m.group(1) + ' ' + m.group(2) if m else '?'}; gateway {gateway}; DNS {', '.join(dns) or '-'}")
+        gw = cli.run(f"execute ping {gateway}", timeout=40)
+        ok_gw = bool(re.search(r"[1-9]\d* packets received", gw))
+        nm = cli.run("execute ping www.fortiguard.com", timeout=40)
+        ok_dns = "bad address" not in nm and bool(re.search(r"[1-9]\d* packets received", nm))
+        log(f"[{label}] gateway {'bereikbaar' if ok_gw else 'NIET bereikbaar'}; "
+            f"DNS/internet {'OK' if ok_dns else 'MISLUKT'}")
+        if not ok_dns:
+            log(f"[{label}] ping-uitvoer: {nm.strip()[-200:]}")
     finally:
         cli.close()
 

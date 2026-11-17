@@ -37,6 +37,17 @@ def day0(log, topo):
     console.console_bootstrap(log, fz["vmid"], "FortiAnalyzer", st["admin_password"], cli)
 
 
+def prepare_network(log, topo):
+    """Uplink, route en DNS van port1 controleren/herstellen (nodig voor FortiFlex en FortiGuard)."""
+    st = get_state()
+    wan = st.get("wan") or {}
+    cidr = wan.get("faz_ip", "")
+    plen = int(cidr.split("/")[1]) if "/" in cidr else 24
+    console.ensure_uplink(log, mgmt_ip(topo), st["admin_password"], "FortiAnalyzer", cidr.split("/")[0],
+                          console.netmask_of(plen), wan.get("gateway", ""),
+                          [d for d in (wan.get("dns1"), wan.get("dns2")) if d] or ["1.1.1.1"])
+
+
 def ensure_license(log, topo):
     st = get_state()
     token = st.get("faz_fortiflex_token")
@@ -48,6 +59,7 @@ def ensure_license(log, topo):
     if not token:
         log("[FortiAnalyzer] geen FortiFlex-token: evaluatiemodus (importeer een .lic zelf via de GUI)")
         return
+    prepare_network(log, topo)
     console.activate_vm_license(log, mgmt_ip(topo), st["admin_password"], "FortiAnalyzer", token)
     time.sleep(120)
 
@@ -73,11 +85,7 @@ def wait_api(log, topo, timeout=900) -> JsonRpc:
 def authorize_devices(log, topo, warn):
     """De FortiGates sturen logs naar FortiAnalyzer; ze verschijnen als 'unregistered' en worden
     hier geautoriseerd (of, als dat al gebeurd is, overgeslagen)."""
-    wan = get_state().get("wan") or {}
-    cidr = wan.get("faz_ip", "")
-    plen = int(cidr.split("/")[1]) if "/" in cidr else 24
-    console.ensure_uplink(log, mgmt_ip(topo), get_state()["admin_password"], "FortiAnalyzer", cidr.split("/")[0],
-                          console.netmask_of(plen), wan.get("gateway", ""))
+    prepare_network(log, topo)
     if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiAnalyzer"):
         time.sleep(30)
     rpc = wait_api(log, topo)
