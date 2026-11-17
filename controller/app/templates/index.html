@@ -58,11 +58,11 @@
       <p class="help">FortiManager en FortiAnalyzer krijgen <b>port1</b> op je netwerk (<span id="up-bridge">-</span>): daarop bereik je
         de GUI's en hebben ze internet (FortiGuard, <b>FortiAI</b>). De ISP-router geeft de lab-FortiGates internet via zijn uplink.
         De FortiGates zelf hangen alleen in het lab.</p>
-      <div class="grid2">
+      <div class="grid2 cols3">
         <div class="field"><label for="i-fmgip">FortiManager IP met prefix</label><input id="i-fmgip" placeholder="192.168.1.60/24"></div>
         <div class="field"><label for="i-fazip">FortiAnalyzer IP met prefix</label><input id="i-fazip" placeholder="192.168.1.61/24"></div>
         <div class="field"><label for="i-gw">Default gateway</label><input id="i-gw" placeholder="192.168.1.1"></div>
-        <div class="field"><label for="i-ispip">ISP-router uplink (IP met prefix of dhcp)</label><input id="i-ispip" placeholder="dhcp"></div>
+        <div class="field"><label for="i-ispip">ISP-router uplink</label><input id="i-ispip" placeholder="dhcp of IP met prefix"></div>
         <div class="field"><label for="i-dns1">DNS primair</label><input id="i-dns1" placeholder="192.168.1.1"></div>
         <div class="field"><label for="i-dns2">DNS secundair</label><input id="i-dns2" placeholder="optioneel"></div>
       </div>
@@ -139,15 +139,18 @@
     <div id="scenarios" class="demo-groups"></div>
     <div class="card">
       <div class="card-head"><h2>Handmatig</h2></div>
-      <div class="grid2">
-        <div class="field"><label>Link verslechteren</label>
-          <div class="row"><select id="m-site"></select>
-            <select id="m-tr"><option value="A">underlay A</option><option value="B">underlay B</option></select></div>
-          <div class="row"><input id="m-delay" placeholder="delay ms" size="8"><input id="m-jitter" placeholder="jitter ms" size="8"><input id="m-loss" placeholder="loss %" size="8"></div>
-          <div class="row"><button id="m-impair">Toepassen</button><button id="m-down">Link down</button><button id="m-up">Link up</button></div></div>
-        <div class="field"><label>Verkeer en hubs</label>
-          <div class="row"><select id="m-tsite"></select><select id="m-preset"></select><button id="m-traffic">Start verkeer</button></div>
-          <div class="row"><select id="m-hub"></select><button id="m-hubstop">Hub uit</button><button id="m-hubstart">Hub aan</button></div></div>
+      <div class="manual">
+        <div class="mform"><h3>Link verslechteren</h3>
+          <div class="mrow"><select id="m-site"></select>
+            <select id="m-tr"><option value="A">WAN-A</option><option value="B">WAN-B</option></select></div>
+          <div class="mrow three"><input id="m-delay" placeholder="delay (ms)"><input id="m-jitter" placeholder="jitter (ms)"><input id="m-loss" placeholder="verlies (%)"></div>
+          <div class="mrow btns"><button id="m-impair" class="primary">Toepassen</button><button id="m-down">Link down</button><button id="m-up">Link up</button></div></div>
+        <div class="mform"><h3>Verkeer</h3>
+          <div class="mrow"><select id="m-tsite"></select><select id="m-preset"></select></div>
+          <div class="mrow btns"><button id="m-traffic" class="primary">Start verkeer</button></div>
+          <h3 class="sep">Hub</h3>
+          <div class="mrow"><select id="m-hub"></select></div>
+          <div class="mrow btns"><button id="m-hubstop">Hub uit</button><button id="m-hubstart">Hub aan</button></div></div>
       </div>
     </div>
     <div class="card">

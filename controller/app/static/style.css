@@ -314,3 +314,24 @@ pre.logbox { margin-top: 14px; }
 .ai-prompt { font-size: 13px; color: var(--fg); overflow-wrap: anywhere; }
 .ai-row .hint { margin-top: 4px; }
 button.small { padding: 2px 10px; font-size: 12px; }
+
+/* --- opschoning 2: lab, toegang, handmatig ------------------------------- */
+.card > .grid { margin-bottom: 0; }
+.tag.absent { background: var(--inset); color: var(--muted); }
+.access h3 { grid-column: 1 / -1; margin: 10px 0 0; font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.access h3:first-child { margin-top: 0; }
+.acc-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.acc .muted { margin-top: 2px; }
+.acc-url { margin: 8px 0; overflow-wrap: anywhere; }
+.acc-cred { display: flex; flex-wrap: wrap; gap: 6px; }
+.manual { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 28px; align-items: start; }
+.mform h3 { margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.mform h3.sep { margin-top: 22px; }
+.mrow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.mrow.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mrow.btns { display: flex; flex-wrap: wrap; }
+.mrow select, .mrow input { width: 100%; min-width: 0; }
+.card-head + .manual { margin-top: 14px; }
+.selbar { box-shadow: 0 4px 14px rgba(0, 0, 0, .18); }
+#tab-setup .grid2.cols3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { #tab-setup .grid2.cols3 { grid-template-columns: 1fr; } }

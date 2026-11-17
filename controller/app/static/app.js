@@ -60,7 +60,7 @@ function viewer(title, html) { $("#viewer-title").textContent = title; $("#viewe
 $("#viewer-close").onclick = () => ($("#viewer").hidden = true);
 
 // --- status ----------------------------------------------------------------
-const stBadge = (s) => `<span class="tag ${s === "running" ? "ok" : s === "absent" ? "" : "warn"}">${esc(s)}</span>`;
+const stBadge = (s) => `<span class="tag ${s === "running" ? "ok" : s === "absent" ? "absent" : "warn"}">${esc(s)}</span>`;
 
 async function refresh() {
   try { S = await api("/api/status"); } catch (e) { return; }
@@ -272,8 +272,11 @@ $("#btn-ai-status").onclick = async () => {
 
 // --- toegang & docs ----------------------------------------------------------------------------
 async function loadAccess() {
+  if (!$("#access").children.length) $("#access").innerHTML = '<span class="muted">laden…</span>';
   const a = await api("/api/access");
-  const row = (x) => `<div class="acc"><b>${esc(x.name)}</b> <span class="muted">${esc(x.note)}</span><br>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>` : "<i>(nog geen adres)</i>"} · <code>${esc(x.user)}</code> / <code>${esc(x.password)}</code></div>`;
+  const row = (x) => `<div class="acc"><div class="acc-title"><b>${esc(x.name)}</b></div><div class="muted">${esc(x.note)}</div>
+    <div class="acc-url">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>` : "<i class=\"muted\">nog geen adres (niet uitgerold?)</i>"}</div>
+    <div class="acc-cred"><code>${esc(x.user)}</code><code>${esc(x.password)}</code></div></div>`;
   $("#access").innerHTML = "<h3>Platformen en FortiGates</h3>" + a.platforms.map(row).join("") + "<h3>Traffic-Gen</h3>" + a.trafficgen.map(row).join("");
   const docs = await api("/api/docs");
   $("#docs").innerHTML = docs.map((d) => `<a href="#" class="doc" data-doc="${d.id}">${esc(d.title)}</a>`).join("");

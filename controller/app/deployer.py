@@ -443,8 +443,9 @@ def deploy_node(log, topo, node):
 
 def node_address(vmid: int) -> str:
     """Uplink-IP (eth0) van een LXC, via pct."""
-    _, out = host().pct_exec(vmid, "ip -4 -o addr show eth0 | awk '{print $4}' | cut -d/ -f1")
-    return out.strip()
+    rc, out = host().pct_exec(vmid, "ip -4 -o addr show eth0 | awk '{print $4}' | cut -d/ -f1")
+    out = out.strip()
+    return out if rc == 0 and re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", out) else ""
 
 
 def update_labnode(log):
