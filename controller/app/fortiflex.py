@@ -151,17 +151,18 @@ def _desc(topo, key: str) -> str:
     return f"{topo['lab']['name_prefix']} {key}"
 
 
-def _list(**filters) -> list[dict]:
-    return call("entitlements/list", filters).get("entitlements") or []
+def _list(config_id: int, **filters) -> list[dict]:
+    """entitlements/list vereist configId (of accountId + programSerialNumber)."""
+    return call("entitlements/list", {"configId": config_id, **filters}).get("entitlements") or []
 
 
 def _find(topo, key: str, config_id: int) -> dict | None:
     serial = (get_state().get("fortiflex_entitlements") or {}).get(key)
     if serial:
-        found = _list(serialNumber=serial)
+        found = _list(config_id, serialNumber=serial)
         if found:
             return found[0]
-    for e in _list(configId=config_id):          # na verlies van state: terugvinden op beschrijving
+    for e in _list(config_id):          # na verlies van state: terugvinden op beschrijving
         if e.get("description") == _desc(topo, key):
             return e
     return None
@@ -190,7 +191,7 @@ def acquire(log, topo, key: str) -> str:
     if ent.get("status") == "STOPPED":
         call("entitlements/reactivate", {"serialNumber": ent["serialNumber"]})
         log(f"[FortiFlex] entitlement {ent['serialNumber']} ({key}) gereactiveerd")
-        ent = (_list(serialNumber=ent["serialNumber"]) or [ent])[0]
+        ent = (_list(config_id, serialNumber=ent["serialNumber"]) or [ent])[0]
     if ent.get("tokenStatus") == "USED" or not ent.get("token"):
         res = call("entitlements/vm/token", {"serialNumber": ent["serialNumber"]})
         ent = _one(res.get("entitlements")) or ent
@@ -215,10 +216,18 @@ def release_all(log):
         release(log, key)
 
 
+def _config_ids(topo) -> dict:
+    c = creds()
+    cfgs = call("configs/list", {"programSerialNumber": program_serial(), **_base(c)}).get("configs") or []
+    by_name = {cf.get("name"): int(cf["id"]) for cf in cfgs}
+    return {k: by_name.get(config_name(topo, k)) for k in PRODUCTS}
+
+
 def status(topo) -> list[dict]:
-    out = []
+    out, ids = [], _config_ids(topo)
     for key, serial in (get_state().get("fortiflex_entitlements") or {}).items():
-        found = _list(serialNumber=serial)
+        cid = ids.get(_kind(key))
+        found = _list(cid, serialNumber=serial) if cid else []
         e = found[0] if found else {}
         out.append({"device": key, "serial": serial, "status": e.get("status", "onbekend"),
                     "token_status": e.get("tokenStatus", ""), "config_id": e.get("configId")})
