@@ -14,6 +14,9 @@ from .hostctl import host
 
 PROMPT = re.compile(r"[#$] $")
 MORE = re.compile(r"--More--\s*$")
+# Tijdelijk wachtwoord voor de verplichte wijziging bij de eerste login (voldoet aan elke complexiteitspolicy);
+# daarna zetten we de policy uit en het echte wachtwoord.
+TEMP_PASSWORD = "Lab-Temp#2026-Xq9!"
 ASK = re.compile(r"(\(y/n\)|password:)\s*$", re.I)
 
 
@@ -73,19 +76,21 @@ def console_bootstrap(log, vmid: int, label: str, password: str, cli: list[str])
         if "login" in out.lower():
             chan.send("admin\r")
             expect(r"password:\s*$", 30)
-            for candidate in ([password, ""] if password else [""]):
+            for candidate in ([password, TEMP_PASSWORD, ""] if password else [TEMP_PASSWORD, ""]):
                 chan.send(candidate + "\r")
                 out = expect(r"# $|login:\s*$|new password:\s*$|\$ $", 30)
                 if re.search(r"new password", out, re.I):         # eerste login: wachtwoord verplicht wijzigen
-                    chan.send(password + "\r")
+                    chan.send(TEMP_PASSWORD + "\r")
                     expect(r"(confirm|again|re-?enter).*:\s*$", 15)
-                    chan.send(password + "\r")
+                    chan.send(TEMP_PASSWORD + "\r")
                     out = expect(r"# $|\$ $", 30)
                 if re.search(r"[#$] ?$", out.rstrip() + " "):
                     break
                 chan.send("admin\r")
                 expect(r"password:\s*$", 30)
-        for line in cli:
+        pre = ["config system password-policy", "  set status disable", "end",
+               "config system admin user", "  edit admin", f'    set password "{password}"', "  next", "end"]
+        for line in pre + cli:
             chan.send(line + "\r")
             time.sleep(0.35)
         time.sleep(2)

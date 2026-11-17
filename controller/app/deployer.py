@@ -339,7 +339,11 @@ def deploy_isp(log, topo, node):
                                     + "".join(f"interface={i}\n" for i, _ in isp_nets(topo)[1:])
                                     + "bind-interfaces\ncache-size=1000\n"),
     })
-    h.pct_exec(vmid, "sysctl --system >/dev/null; systemctl enable --now nftables dnsmasq", check=True)
+    h.pct_exec(vmid, "sysctl --system >/dev/null; systemctl enable nftables dnsmasq; "
+                     "systemctl restart nftables dnsmasq", check=True)
+    _, rules = h.pct_exec(vmid, "nft list ruleset")
+    if "masquerade" not in rules:
+        raise RuntimeError("ISP-router: NAT-regel (masquerade) niet actief; controleer /etc/nftables.conf")
     log(f"{node['hostname']}: gateway + NAT + DNS actief op WAN-A ({seg_a}) en WAN-B ({seg_b})")
 
 
