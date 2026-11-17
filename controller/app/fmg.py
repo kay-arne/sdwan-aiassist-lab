@@ -73,12 +73,19 @@ def ensure_license(log, topo):
 
 
 def wait_api(log, topo, timeout=900) -> JsonRpc:
-    deadline, last = time.time() + timeout, None
+    deadline, last, fixed = time.time() + timeout, None, False
     while time.time() < deadline:
         try:
             return client(topo)
         except Exception as e:  # noqa: BLE001
             last = e
+            if "-11" in str(e) and not fixed:
+                fixed = True
+                try:
+                    console.enable_rpc(log, mgmt_ip(topo), get_state().get("admin_password", ""), "FortiManager")
+                except Exception as e2:  # noqa: BLE001
+                    log(f"rpc-permit zetten mislukt: {e2}")
+                continue
             time.sleep(15)
     raise RuntimeError(f"FortiManager API niet bereikbaar ({last})")
 

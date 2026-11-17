@@ -89,7 +89,7 @@ def console_bootstrap(log, vmid: int, label: str, password: str, cli: list[str])
                 chan.send("admin\r")
                 expect(r"password:\s*$", 30)
         pre = ["config system password-policy", "  set status disable", "end",
-               "config system admin user", "  edit admin", f'    set password "{password}"', "  next", "end"]
+               "config system admin user", "  edit admin", f'    set password "{password}"', "    set rpc-permit read-write", "  next", "end"]
         for line in pre + cli:
             chan.send(line + "\r")
             time.sleep(0.35)
@@ -144,6 +144,17 @@ class Cli:
             self.client.close()
         except Exception:  # noqa: BLE001
             pass
+
+
+def enable_rpc(log, ip: str, password: str, label: str):
+    """JSON-RPC-login geeft [-11] 'No permission' als admin geen rpc-permit heeft: via SSH-CLI aanzetten."""
+    log(f"[{label}] JSON-RPC geweigerd (-11); rpc-permit read-write voor admin zetten via SSH")
+    cli = Cli(ip, password)
+    try:
+        for line in ("config system admin user", "edit admin", "set rpc-permit read-write", "next", "end"):
+            cli.run(line)
+    finally:
+        cli.close()
 
 
 def wait_ssh(log, ip: str, password: str, label: str, timeout=900) -> Cli:
