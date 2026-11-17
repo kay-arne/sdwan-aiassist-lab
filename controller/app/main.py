@@ -428,6 +428,30 @@ def links():
         return {"error": str(e)}
 
 
+class FmgQuery(BaseModel):
+    url: str
+    option: Optional[str] = None        # bijv. "syntax": schema van het object ophalen
+    fields: Optional[list[str]] = None
+    filter: Optional[list] = None
+
+
+@app.post("/api/fmg/get")
+def fmg_get(q: FmgQuery):
+    """Alleen-lezen JSON-RPC 'get' naar FortiManager, voor het onderzoeken van het API-formaat van jouw versie."""
+    from . import fmg
+    from .jsonrpc import RpcError
+    if not q.url.startswith("/"):
+        raise HTTPException(400, "url moet met / beginnen")
+    extra = {k: v for k, v in (("option", q.option), ("fields", q.fields), ("filter", q.filter)) if v}
+    rpc = fmg.client(load_topology())
+    try:
+        return {"url": q.url, "data": rpc.get(q.url, **extra)}
+    except RpcError as e:
+        return {"url": q.url, "error": str(e)}
+    finally:
+        rpc.logout()
+
+
 @app.get("/api/fortiai/status")
 def fortiai_status():
     return faz.fortiai_status(load_topology())
