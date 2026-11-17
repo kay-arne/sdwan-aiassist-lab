@@ -249,7 +249,12 @@ def build_overlay(log, topo, rpc: JsonRpc, warn):
         nid, underlay, scope = node["id"], node["underlay"], node["scope"]
         body = {k: v for k, v in node.items() if k not in ("underlay", "scope")}
         last = None
-        for form in ([{"name": s, "vdom": "root"} for s in scope], scope):       # twee varianten voor _scope
+        devs = [{"name": s, "vdom": "root"} for s in scope]
+        if node["role"] == "spoke":      # alle branches via de apparaatgroep; per apparaat is de terugval
+            forms = [[{"name": SPOKE_GROUP, "is group": 1}], {"name": SPOKE_GROUP, "is group": 1}, devs]
+        else:
+            forms = [devs, scope]
+        for form in forms:                                                          # varianten voor _scope
             try:
                 _put(rpc, f"{root}/nodes", nid, {**body, "_scope": form})
                 last = None
