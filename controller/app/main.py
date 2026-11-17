@@ -214,6 +214,49 @@ def fortiflex_configs():
     return {"log": lines}
 
 
+class FlexAction(BaseModel):
+    device: str
+    action: str            # create | token | stop | reactivate | unlink
+
+
+@app.get("/api/fortiflex/entitlements")
+def fortiflex_entitlements():
+    from . import fortiflex
+    try:
+        return fortiflex.entitlements(load_topology())
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e)) from None
+
+
+@app.post("/api/fortiflex/entitlement")
+def fortiflex_entitlement(a: FlexAction):
+    from . import fortiflex
+    topo, lines = load_topology(), []
+    keys = [k for k, _ in fortiflex.device_keys(topo)]
+    targets = keys if a.device == "all" else [a.device]
+    if any(k not in keys for k in targets):
+        raise HTTPException(400, "onbekend apparaat")
+    try:
+        for k in targets:
+            if a.action == "create":
+                fortiflex.create(lines.append, topo, k)
+            elif a.action == "token":
+                fortiflex.new_token(lines.append, k)
+            elif a.action == "stop":
+                fortiflex.release(lines.append, k)
+            elif a.action == "reactivate":
+                fortiflex.reactivate(lines.append, k)
+            elif a.action == "unlink":
+                fortiflex.unlink(lines.append, k)
+            else:
+                raise HTTPException(400, "onbekende actie")
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e)) from None
+    return {"log": lines}
+
+
 @app.get("/api/fortiflex/status")
 def fortiflex_status():
     from . import fortiflex

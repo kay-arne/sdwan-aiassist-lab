@@ -185,19 +185,42 @@ function renderLic(s, topo) {
       <div class="field"><label>Account-ID</label><input data-ff="account_id" value="${esc(f.account_id || "")}" placeholder="optioneel"></div>`;
   }
   $("#ff-actions").hidden = mode !== "fortiflex_api";
+  if (mode === "fortiflex_api") loadFlex();
   if (mode === "file") h = topo.sites.map((x) => `<div class="field"><label>${x.device} .lic</label><input type="file" data-lic="${x.id}" accept=".lic"></div>`).join("");
   $("#lic-fields").innerHTML = h;
   $$("[data-lic]").forEach((i) => (i.onchange = () => i.files[0] && uploadLicense(i.dataset.lic, i.files[0])));
 }
-async function ffCall(url, method = "POST") {
+async function ffCall(url, method = "POST", body) {
   const out = $("#ff-out"); out.hidden = false; out.textContent = "bezig...";
-  try { const r = await (method === "GET" ? api(url) : post(url, {})); out.textContent = JSON.stringify(r, null, 2); }
-  catch (e) { out.textContent = "Fout: " + e.message; }
+  try {
+    const r = await (method === "GET" ? api(url) : post(url, body));
+    out.textContent = r.log ? r.log.join("\n") || "klaar" : JSON.stringify(r, null, 2);
+  } catch (e) { out.textContent = "Fout: " + e.message; }
+  loadFlex();
 }
+async function loadFlex() {
+  const el = $("#ff-table"); if (!el || $("#ff-actions").hidden) return;
+  if (!el.children.length) el.innerHTML = '<span class="muted">laden…</span>';
+  let rows;
+  try { rows = await api("/api/fortiflex/entitlements"); } catch (e) { el.innerHTML = `<span class="warn">${esc(e.message)}</span>`; return; }
+  const st = (s) => !s ? '<span class="tag absent">geen</span>' : `<span class="tag ${s === "ACTIVE" ? "ok" : s === "PENDING" ? "" : "warn"}">${esc(s)}</span>`;
+  const btn = (d, a, t, cls = "") => `<button class="small ${cls}" data-ffa="${a}" data-ffd="${d}">${t}</button>`;
+  el.innerHTML = `<table class="kv fftable"><tr><th>Apparaat</th><th>Entitlement</th><th>Status</th><th>Token</th><th></th></tr>${rows.map((r) => `<tr>
+    <td>${esc(r.label)}</td><td class="mono">${esc(r.serial || "-")}</td><td>${st(r.status)}</td>
+    <td>${r.token_status === "USED" ? "gebruikt" : r.token_status === "NOTUSED" ? "ongebruikt" : "-"}</td>
+    <td class="ffbtns">${!r.serial ? btn(r.device, "create", "Aanmaken", "primary")
+      : btn(r.device, "token", "Nieuwe token") + (r.status === "STOPPED" ? btn(r.device, "reactivate", "Reactiveren") : btn(r.device, "stop", "Stoppen")) + btn(r.device, "unlink", "Ontkoppelen", "ghost")}</td></tr>`).join("")}</table>`;
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ffa]"); if (!b) return;
+  if (b.dataset.ffa === "unlink" && !confirm("Koppeling met deze entitlement verwijderen? (De entitlement zelf blijft in FortiFlex bestaan; stop hem eerst.)")) return;
+  ffCall("/api/fortiflex/entitlement", "POST", { device: b.dataset.ffd, action: b.dataset.ffa });
+});
 $("#ff-test").onclick = () => ffCall("/api/fortiflex/test");
 $("#ff-configs").onclick = () => ffCall("/api/fortiflex/configs");
-$("#ff-status").onclick = () => ffCall("/api/fortiflex/status", "GET");
-$("#ff-stop").onclick = () => confirm("Alle FortiFlex-entitlements van dit lab stoppen?") && ffCall("/api/fortiflex/stop-all");
+$("#ff-refresh").onclick = () => loadFlex();
+$("#ff-create-all").onclick = () => ffCall("/api/fortiflex/entitlement", "POST", { device: "all", action: "create" });
+$("#ff-stop").onclick = () => confirm("Alle FortiFlex-entitlements van dit lab stoppen?") && ffCall("/api/fortiflex/entitlement", "POST", { device: "all", action: "stop" });
 $$("input[name=lic]").forEach((r) => (r.onchange = async () => renderLic(await api("/api/settings"), CAT)));
 $$("[data-save]").forEach((b) => (b.onclick = async () => {
   const k = b.dataset.save; let body = {};

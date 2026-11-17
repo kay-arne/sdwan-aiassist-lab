@@ -245,3 +245,76 @@ def test(topo) -> dict:
     return {"programs": [p.get("serialNumber") for p in progs],
             "program_used": program_serial(),
             "lab_configs": {n: any(cf.get("name") == n for cf in cfgs) for n in names}}
+
+
+# --- beheer per apparaat (Setup > Licenties) -----------------------------------------------
+def device_keys(topo) -> list[tuple[str, str]]:
+    """(key, label) van alle apparaten die een licentie nodig hebben."""
+    return ([("fmg", "FortiManager"), ("faz", "FortiAnalyzer")]
+            + [(f"fgt:{s['id']}", f"{s['fgt_name']} ({s['name']})") for s in topo["sites"]])
+
+
+def entitlements(topo) -> list[dict]:
+    """Eén regel per apparaat, met de actuele status uit FortiFlex (alleen lezen; maakt niets aan)."""
+    ids = _config_ids(topo)
+    known = get_state().get("fortiflex_entitlements") or {}
+    cache: dict[int, list[dict]] = {}
+    rows = []
+    for key, label in device_keys(topo):
+        cid = ids.get(_kind(key))
+        found = None
+        if cid:
+            if cid not in cache:
+                cache[cid] = _list(cid)
+            serial = known.get(key)
+            found = next((e for e in cache[cid] if serial and e.get("serialNumber") == serial), None) \
+                or next((e for e in cache[cid] if e.get("description") == _desc(topo, key)), None)
+            if found and known.get(key) != found["serialNumber"]:
+                _remember(key, found["serialNumber"])
+        rows.append({"device": key, "label": label, "config": bool(cid),
+                     "serial": (found or {}).get("serialNumber", ""), "status": (found or {}).get("status", ""),
+                     "token_status": (found or {}).get("tokenStatus", ""), "end_date": (found or {}).get("endDate", "")})
+    return rows
+
+
+def create(log, topo, key: str) -> dict:
+    """Entitlement voor een apparaat aanmaken (of de bestaande teruggeven); gebruikt de token nog niet."""
+    config_id = ensure_config(log, topo, _kind(key))
+    ent = _find(topo, key, config_id)
+    if ent and ent.get("status") != "EXPIRED":
+        _remember(key, ent["serialNumber"])
+        log(f"[FortiFlex] {key}: entitlement {ent['serialNumber']} bestaat al")
+        return ent
+    res = call("entitlements/vm/create", {"configId": config_id, "count": 1, "description": _desc(topo, key)})
+    ent = _one(res.get("entitlements"))
+    _remember(key, ent["serialNumber"])
+    log(f"[FortiFlex] {key}: entitlement {ent['serialNumber']} aangemaakt")
+    return ent
+
+
+def _serial(key: str) -> str:
+    serial = (get_state().get("fortiflex_entitlements") or {}).get(key)
+    if not serial:
+        raise FlexError(f"{key}: nog geen entitlement; maak er eerst een aan.")
+    return serial
+
+
+def new_token(log, key: str):
+    serial = _serial(key)
+    call("entitlements/vm/token", {"serialNumber": serial})
+    log(f"[FortiFlex] {key}: nieuwe token voor {serial}")
+
+
+def reactivate(log, key: str):
+    serial = _serial(key)
+    call("entitlements/reactivate", {"serialNumber": serial})
+    log(f"[FortiFlex] {key}: entitlement {serial} gereactiveerd")
+
+
+def unlink(log, key: str):
+    """Koppeling in de controller verwijderen. FortiFlex kent geen 'verwijderen' voor VM-entitlements: stop de
+    entitlement eerst (dan kost hij niets) en verwijder de koppeling; een nieuwe uitrol maakt dan een nieuwe aan."""
+    ents = dict(get_state().get("fortiflex_entitlements") or {})
+    serial = ents.pop(key, None)
+    update_state(fortiflex_entitlements=ents)
+    log(f"[FortiFlex] {key}: koppeling met {serial or '-'} verwijderd")

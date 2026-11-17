@@ -92,9 +92,18 @@
         <label class="choice"><input type="radio" name="lic" value="none"><span><b>Geen / later</b><small>Evaluatiemodus.</small></span></label>
       </div>
       <div id="lic-fields" class="grid2"></div>
-      <div id="ff-actions" class="actions ff-actions" hidden>
-        <button id="ff-test">Verbinding testen</button><button id="ff-configs">Configuraties aanmaken</button>
-        <button id="ff-status">Status</button><button id="ff-stop">Alle entitlements stoppen</button>
+      <div id="ff-actions" hidden>
+        <div class="actions ff-actions">
+          <button id="ff-test">Verbinding testen</button><button id="ff-configs">Configuraties aanmaken</button>
+          <button id="ff-refresh">Vernieuwen</button>
+        </div>
+        <h3 class="subhead">Entitlements van dit lab</h3>
+        <p class="hint">Bij elke (her)uitrol van een VM genereert de controller automatisch een nieuwe token uit de gekoppelde
+          entitlement. FortiFlex kan VM-entitlements niet verwijderen: <b>Stoppen</b> beëindigt het verbruik, <b>Ontkoppelen</b>
+          haalt de koppeling uit de controller.</p>
+        <div id="ff-table"></div>
+        <div class="actions"><button id="ff-create-all" class="primary">Alle entitlements aanmaken</button>
+          <button id="ff-stop">Alle stoppen</button></div>
       </div>
       <pre id="ff-out" class="logbox" hidden></pre>
       <div class="actions"><button class="primary" data-save="license">Opslaan</button><span class="result" data-result="license"></span></div>
