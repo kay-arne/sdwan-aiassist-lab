@@ -48,12 +48,7 @@ def ensure_license(log, topo):
     if not token:
         log("[FortiAnalyzer] geen FortiFlex-token: evaluatiemodus (importeer een .lic zelf via de GUI)")
         return
-    cli = console.wait_ssh(log, mgmt_ip(topo), st["admin_password"], "FortiAnalyzer")
-    try:
-        out = cli.run(f"execute vm-license {token}", timeout=90, answer="y")
-        log(f"[FortiAnalyzer] FortiFlex-token geactiveerd; herstart ({out.strip()[-120:]})")
-    finally:
-        cli.close()
+    console.activate_vm_license(log, mgmt_ip(topo), st["admin_password"], "FortiAnalyzer", token)
     time.sleep(120)
 
 

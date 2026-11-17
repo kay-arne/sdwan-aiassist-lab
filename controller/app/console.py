@@ -207,6 +207,29 @@ def ensure_uplink(log, ip: str, password: str, label: str, uplink: str, mask: st
         cli.close()
 
 
+def activate_vm_license(log, ip: str, password: str, label: str, token: str, attempts=8, wait=60):
+    """execute vm-license <token> met herhaling: een net aangemaakte FortiFlex-entitlement is soms pas na enkele
+    minuten op te halen ('get license by token failed'). Succes = de VM meldt dat hij herstart."""
+    last = ""
+    for n in range(1, attempts + 1):
+        cli = wait_ssh(log, ip, password, label)
+        try:
+            out = cli.run(f"execute vm-license {token}", timeout=120, answer="y")
+            last = out.strip()[-200:]
+            if re.search(r"will reboot|reboot to apply|rebooting", out, re.I) and "failed" not in out.lower():
+                log(f"[{label}] FortiFlex-token geactiveerd; VM herstart")
+                return
+            log(f"[{label}] licentie ophalen mislukt (poging {n}/{attempts}): {last or 'geen uitvoer'}")
+            if n == 1:     # eenmalig: staat de VM wel op internet en DNS?
+                diag = cli.run("execute ping www.fortiguard.com", timeout=40)
+                log(f"[{label}] internetcontrole: {diag.strip()[-160:]}")
+        finally:
+            cli.close()
+        time.sleep(wait)
+    raise RuntimeError(f"{label}: FortiFlex-token niet geaccepteerd na {attempts} pogingen ({last}). "
+                       "Controleer internet/DNS op port1 en of de entitlement actief is in het FortiFlex-portaal.")
+
+
 def wait_ssh(log, ip: str, password: str, label: str, timeout=900) -> Cli:
     deadline, last = time.time() + timeout, None
     while time.time() < deadline:
