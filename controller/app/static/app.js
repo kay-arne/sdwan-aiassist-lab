@@ -73,7 +73,7 @@ function renderProblems() {
   const p = (S.settings.problems || []);
   const el = $("#problems");
   el.hidden = !p.length;
-  el.innerHTML = p.length ? `<b>${p.length} waarschuwing(en) bij de provisioning:</b><ul>${p.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  el.innerHTML = p.length ? `<details open><summary>${p.length} waarschuwing(en) bij de provisioning</summary><ul>${p.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></details>` : "";
 }
 
 function renderChecklist() {
@@ -93,17 +93,18 @@ function renderChecklist() {
 // --- lab/topologie ------------------------------------------------------------
 let selected = new Set();
 function comp(id, name, status, sub) {
-  return `<label class="comp"><input type="checkbox" data-sel="${id}" ${selected.has(id) ? "checked" : ""}> <b>${esc(name)}</b> ${stBadge(status)}<span class="sub">${sub || ""}</span></label>`;
+  const lines = (Array.isArray(sub) ? sub : [sub]).filter(Boolean).map((x) => `<span>${x}</span>`).join("");
+  return `<label class="comp"><input type="checkbox" data-sel="${id}" ${selected.has(id) ? "checked" : ""}><span class="comp-name">${esc(name)}</span>${stBadge(status)}<span class="comp-sub">${lines}</span></label>`;
 }
 function renderTopology() {
   const l = S.lab;
   const group = (t, items) => `<div class="card"><h2>${t}</h2><div class="grid">${items.join("")}</div></div>`;
   $("#topology").innerHTML =
-    group("Netwerk", [comp("network", `${l.segments.filter((s) => s.present).length}/${l.segments.length} bridges`, l.segments.every((s) => s.present) ? "running" : "absent", "vmbr600, 611-612, 621-623, 631-635, 641-645")]) +
-    group("Beheer", [comp("fmg", "FortiManager", l.fmg.status, `VMID ${l.fmg.vmid}`), comp("faz", "FortiAnalyzer", l.faz.status, `VMID ${l.faz.vmid}`)]) +
-    group("FortiGates", l.sites.map((s) => comp(`fgt:${s.id}`, `${s.name} (${s.role})`, s.status, `${s.hostname}<br>mgmt ${s.mgmt_ip} · A ${s.wan1} · B ${s.wan2} · LAN ${s.lan_ip}`))) +
-    group("Helpers", [comp("template", "LXC-template", l.template.status, `VMID ${l.template.vmid}`)].concat(l.nodes.map((n) => comp(`node:${n.name}`, n.name, n.status, `${n.role}${n.ip ? " · " + n.ip : ""}`)))) +
-    group("Configuratie", [comp("config", "FortiManager/FortiAnalyzer-provisioning", S.settings.fmg_provisioned ? "running" : "absent", "overlay template, SD-WAN, policies, logging")]);
+    group("Netwerk", [comp("network", `${l.segments.filter((s) => s.present).length}/${l.segments.length} bridges`, l.segments.every((s) => s.present) ? "running" : "absent", l.segments.map((s) => s.bridge).join(", "))]) +
+    group("Beheer", [comp("fmg", "FortiManager", l.fmg.status, [`VMID ${l.fmg.vmid}`]), comp("faz", "FortiAnalyzer", l.faz.status, [`VMID ${l.faz.vmid}`])]) +
+    group("FortiGates", l.sites.map((s) => comp(`fgt:${s.id}`, `${s.name} (${s.role})`, s.status, [esc(s.hostname), `mgmt ${s.mgmt_ip}`, `WAN-A ${s.wan1} · WAN-B ${s.wan2}`, `LAN ${s.lan_ip}`]))) +
+    group("Helpers", [comp("template", "LXC-template", l.template.status, [`VMID ${l.template.vmid}`])].concat(l.nodes.map((n) => comp(`node:${n.name}`, n.name, n.status, [`${n.role}${n.ip ? " · " + n.ip : ""}`])))) +
+    group("Configuratie", [comp("config", "FortiManager/FortiAnalyzer-provisioning", S.settings.fmg_provisioned ? "running" : "absent", ["overlay template, SD-WAN, policies, logging"])]);
   $$("[data-sel]").forEach((c) => (c.onchange = () => { c.checked ? selected.add(c.dataset.sel) : selected.delete(c.dataset.sel); updateSel(); }));
   updateSel();
 }
@@ -174,10 +175,10 @@ function renderLic(s, topo) {
   if (mode === "fortiflex") h = tok("fmg", "FortiManager", s.fortiflex.fmg) + tok("faz", "FortiAnalyzer", s.fortiflex.faz) + topo.sites.map((x) => tok("fgt:" + x.id, x.device, s.fortiflex.fgt[x.id])).join("");
   if (mode === "fortiflex_api") {
     const f = s.fortiflex_api || {};
-    h = `<div class="field"><label>API-gebruiker (FortiCloud IAM)</label><input data-ff="username" value="${esc(f.username || "")}"></div>
+    h = `<div class="field"><label>API-gebruiker</label><input data-ff="username" value="${esc(f.username || "")}"></div>
       <div class="field"><label>API-wachtwoord</label><input type="password" data-ff="password" placeholder="${f.password_set ? "ongewijzigd" : ""}"></div>
-      <div class="field"><label>Programma-serienummer (leeg = eerste programma)</label><input data-ff="program_serial" value="${esc(f.program_serial || "")}" placeholder="ELAVMS..."></div>
-      <div class="field"><label>Account-ID (optioneel)</label><input data-ff="account_id" value="${esc(f.account_id || "")}"></div>`;
+      <div class="field"><label>Programma-serienummer</label><input data-ff="program_serial" value="${esc(f.program_serial || "")}" placeholder="leeg = eerste programma"></div>
+      <div class="field"><label>Account-ID</label><input data-ff="account_id" value="${esc(f.account_id || "")}" placeholder="optioneel"></div>`;
   }
   $("#ff-actions").hidden = mode !== "fortiflex_api";
   if (mode === "file") h = topo.sites.map((x) => `<div class="field"><label>${x.device} .lic</label><input type="file" data-lic="${x.id}" accept=".lic"></div>`).join("");
@@ -229,7 +230,7 @@ async function loadCockpit() {
   $$("[data-clean]").forEach((b) => (b.onclick = () => runJob("/api/scenarios/run", { id: b.dataset.clean, phase: "cleanup" })));
 }
 function aiRow(q) {
-  return `<div class="ev"><span class="tag">${esc(q.where)}</span> <span class="ai-prompt">${esc(q.prompt)}</span> <button class="ghost small" data-copy="${esc(q.prompt)}">Kopieer</button><div class="hint">${esc(q.expect)}</div></div>`;
+  return `<div class="ai-row"><div class="ai-head"><span class="tag">${esc(q.where)}</span><button class="ghost small" data-copy="${esc(q.prompt)}">Kopieer</button></div><div class="ai-prompt">${esc(q.prompt)}</div><div class="hint">${esc(q.expect)}</div></div>`;
 }
 document.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (c) { copy(c.dataset.copy); c.textContent = "Gekopieerd"; setTimeout(() => (c.textContent = "Kopieer"), 1500); } });
 const act = (a) => post("/api/action", a).then((j) => followJob(j)).catch((e) => alert(e.message));
