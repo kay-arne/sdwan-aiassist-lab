@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""tgctl - bestuur de lokale Traffic-Gen (https://127.0.0.1:8443) vanuit de controller.
+
+  tgctl start [--minutes N] [--intensity low|medium|high] [--threads N] [--groups '{"streaming":50}']
+  tgctl stop | state
+Wachtwoord: /etc/sdwlab/tg-password."""
+import argparse
+import http.cookiejar
+import json
+import ssl
+import sys
+import urllib.request
+
+PORT = 8443
+ctx = ssl.create_default_context()
+ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+jar = http.cookiejar.CookieJar()
+op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), urllib.request.HTTPSHandler(context=ctx))
+
+
+def call(path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(f"https://127.0.0.1:{PORT}{path}", data=data,
+                                 headers={"Content-Type": "application/json"}, method="POST" if data is not None else "GET")
+    try:
+        return json.loads(op.open(req, timeout=30).read() or b"{}")
+    except urllib.error.HTTPError as e:
+        sys.exit(f"{path}: {e.code} {e.read().decode()[:200]}")
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("cmd", choices=["start", "stop", "state", "network"])
+    p.add_argument("--minutes", type=int, default=0)
+    p.add_argument("--intensity")
+    p.add_argument("--threads", type=int)
+    p.add_argument("--groups")
+    a = p.parse_args()
+    pw = open("/etc/sdwlab/tg-password").read().strip()
+    call("/api/login", {"password": pw})
+    if a.cmd == "start":
+        body = {"duration_minutes": a.minutes}
+        if a.intensity: body["intensity"] = a.intensity
+        if a.threads: body["threads_per_ip"] = a.threads
+        if a.groups: body["groups"] = json.loads(a.groups)
+        try:
+            call("/api/network/apply", {})
+        except SystemExit:
+            pass
+        print(json.dumps(call("/api/start", body)))
+    elif a.cmd == "stop":
+        print(json.dumps(call("/api/stop", {})))
+    elif a.cmd == "network":
+        print(json.dumps(call("/api/network/apply", {})))
+    else:
+        print(json.dumps(call("/api/state")))
+
+
+if __name__ == "__main__":
+    main()

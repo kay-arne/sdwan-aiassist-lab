@@ -1,0 +1,173 @@
+# Demo-scenario's voor de cockpit. Elk scenario: een verhaal, acties die het veroorzaken (impair, traffic,
+# vm, iperf, fmg_script, sleep) en de FortiAI-Assist-vragen die je daarna stelt in FortiAnalyzer of
+# FortiManager. 'clear' zet het lab weer in de basisstand.
+#
+# Actiesoorten:
+#   {do: impair, site: br1, transport: A|B, delay: ms, jitter: ms, loss: pct, rate: mbit}
+#   {do: link, site: br2, transport: A, state: down|up}
+#   {do: clear}                                       alle links schoon en alle hubs aan
+#   {do: traffic, site: all|br1|.., preset: normal|streaming|security|voice}
+#   {do: traffic_stop}
+#   {do: vm, site: hub-ams, op: stop|start}
+#   {do: iperf, site: br1, to: srv-ams, seconds: 20, streams: 4}
+#   {do: fmg_script, device: FGT-BR1, name: .., content: ".."}
+#   {do: sleep, seconds: 30}
+
+traffic_presets:
+  normal:    {office365: 25, collab: 20, streaming: 20, social: 10, saas: 10, web: 10, updates: 3, download: 2, sdwan: 5, webfilter: 0, malware: 0, ioc: 0}
+  streaming: {office365: 5, collab: 5, streaming: 70, social: 15, saas: 0, web: 5, updates: 0, download: 0, sdwan: 5, webfilter: 0, malware: 0, ioc: 0}
+  voice:     {office365: 15, collab: 70, streaming: 0, social: 0, saas: 10, web: 0, updates: 0, download: 0, sdwan: 5, webfilter: 0, malware: 0, ioc: 0}
+  security:  {office365: 10, collab: 5, streaming: 5, social: 5, saas: 5, web: 10, updates: 0, download: 0, sdwan: 5, webfilter: 15, malware: 25, ioc: 15}
+
+scenarios:
+  - id: baseline
+    title: "1. Basislijn: wat gebeurt er in mijn SD-WAN?"
+    story: >
+      Alle links gezond, normaal gebruikersverkeer in drie branches. Je laat zien wat FortiAnalyzer nu al weet
+      (applicaties, bandbreedte per underlay, SLA-metingen) en hoe FortiAI-Assist daar in gewone taal vragen over
+      beantwoordt, zonder dat je een filter of dashboard hoeft te kennen.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: all, preset: normal}
+      - {do: sleep, seconds: 120}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Which applications used the most bandwidth in the last hour, split per branch?", expect: "Top-applicaties per FortiGate; vergelijk met FortiView > Applications"}
+      - {where: FortiAnalyzer, prompt: "Show the SD-WAN underlay usage per FortiGate for the last hour. Which transport carries most traffic?", expect: "Verdeling over port2 (underlay A) en port3 (underlay B) per branch"}
+      - {where: FortiAnalyzer, prompt: "Summarize the health of the SD-WAN in the last 24 hours in five bullet points.", expect: "Korte samenvatting; goede opening van een demo"}
+    cleanup: []
+
+  - id: brownout
+    title: "2. Brownout op underlay A van Utrecht"
+    story: >
+      De internetlink van branch Utrecht wordt traag en verliest pakketten (150 ms, 40 ms jitter, 6% verlies). De
+      SLA-health-check faalt en SD-WAN verplaatst Teams en de ERP-verbindingen naar underlay B. Gebruikers merken
+      weinig; de beheerder wil weten wat er gebeurde en waarom.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: br1, preset: voice}
+      - {do: sleep, seconds: 60}
+      - {do: impair, site: br1, transport: A, delay: 150, jitter: 40, loss: 6}
+      - {do: sleep, seconds: 120}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Why did the Teams traffic from FGT-BR1 change transport in the last 30 minutes?", expect: "Verwijst naar SLA-overschrijding op port2 (latency/jitter/loss) en de rule VOICE-VIDEO"}
+      - {where: FortiAnalyzer, prompt: "Show latency, jitter and packet loss for FGT-BR1 per SD-WAN member over the last hour.", expect: "Piek op underlay A vanaf het moment van de impairment"}
+      - {where: FortiAnalyzer, prompt: "Was there a service impact for users in Utrecht? Compare session counts before and after.", expect: "Sessies zijn doorgeschoven, niet weggevallen"}
+      - {where: FortiManager, prompt: "Which SD-WAN rule handles Microsoft Teams, and which SLA does it use?", expect: "VOICE-VIDEO met health-check HC-DC (latency 80 ms, jitter 20 ms, loss 2%)"}
+    cleanup:
+      - {do: clear}
+
+  - id: blackout
+    title: "3. Underlay A valt weg in Rotterdam"
+    story: >
+      De volledige internetlink van branch Rotterdam gaat down. De IPsec-tunnels over underlay A vallen weg, BGP
+      herconvergeert via underlay B, en ADVPN bouwt zo nodig nieuwe shortcuts. Het gaat erom hoe snel en wat de
+      impact was.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: br2, preset: normal}
+      - {do: sleep, seconds: 60}
+      - {do: link, site: br2, transport: A, state: down}
+      - {do: sleep, seconds: 90}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Summarize the events on FGT-BR2 in the last 15 minutes and explain the root cause.", expect: "Tunnels down, SD-WAN member dead, failover naar port3"}
+      - {where: FortiAnalyzer, prompt: "Which IPsec tunnels went down on FGT-BR2 and when did traffic recover over the remaining tunnels?", expect: "Tijdlijn: tunnel-down, BGP-reconvergentie, herstel"}
+      - {where: FortiManager, prompt: "Explain how the overlay template provides redundancy when one underlay fails.", expect: "Per-underlay tunnels naar elke hub, BGP met lagere pref via de andere overlay"}
+    cleanup:
+      - {do: clear}
+
+  - id: hub-failure
+    title: "4. Hub Amsterdam valt uit"
+    story: >
+      Het hele datacenter AMS (inclusief FortiGate-hub) valt uit. Spokes routeren via Frankfurt. Je laat zien dat de
+      multi-hub-overlay werkt en dat FortiAnalyzer de impact per branch kan reconstrueren.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: all, preset: normal}
+      - {do: sleep, seconds: 60}
+      - {do: vm, site: hub-ams, op: stop}
+      - {do: sleep, seconds: 120}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Hub FGT-HUB-AMS stopped sending logs. Which branches were affected and how did their traffic move?", expect: "Spokes verplaatsen naar FGT-HUB-FRA"}
+      - {where: FortiAnalyzer, prompt: "Which spoke tunnels to FGT-HUB-AMS were lost in the last 10 minutes?", expect: "Lijst van 3 spokes x 2 tunnels"}
+      - {where: FortiManager, prompt: "Is FGT-HUB-AMS still connected to FortiManager? What is its configuration status?", expect: "Connection down; config-status ongewijzigd"}
+    cleanup:
+      - {do: vm, site: hub-ams, op: start}
+      - {do: clear}
+
+  - id: streaming-vs-business
+    title: "5. Streaming concurreert met bedrijfsapplicaties"
+    story: >
+      In Eindhoven start een stroom streaming. De rule STREAMING stuurt dat naar de goedkoopste link (underlay B) en
+      houdt underlay A schoon voor Teams en Salesforce. Je laat zien dat business intent het verkeer sorteert.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: br3, preset: streaming}
+      - {do: sleep, seconds: 180}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Which application categories use underlay B at FGT-BR3 and which use underlay A?", expect: "Streaming op port3, business-apps op port2"}
+      - {where: FortiAnalyzer, prompt: "What are the top 5 bandwidth consumers at FGT-BR3 right now, and which SD-WAN rule matched them?", expect: "Netflix/YouTube met rule STREAMING"}
+      - {where: FortiManager, prompt: "Create an SD-WAN rule that sends Spotify traffic to the lowest-cost member. Give me the CLI.", expect: "Gegenereerd 'config system sdwan / config service'-script; review en uitvoeren als script"}
+    cleanup:
+      - {do: traffic_stop}
+
+  - id: security-incident
+    title: "6. Beveiligingsincident: malware en botnet-gedrag"
+    story: >
+      Een host in Rotterdam begint harmloze testmalware (EICAR) op te halen en doet DGA-/tunnel-DNS-queries. De FortiGate
+      blokkeert (AV, IPS, DNS-filter), FortiAnalyzer correleert tot een incident, en FortiAI-Assist legt uit wat er gebeurde
+      en wat de aanbevolen vervolgstappen zijn.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: br2, preset: security}
+      - {do: sleep, seconds: 240}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Summarize the security events of the last hour. Which host is the most suspicious and why?", expect: "Bron-IP's uit de Rotterdam-Traffic-Gen (10.12.0.50-55) met AV-/DNS-events"}
+      - {where: FortiAnalyzer, prompt: "Explain the IPS and antivirus events for source 10.12.0.50 in plain language and recommend next steps.", expect: "Duidelijke uitleg + advies (isoleren, scannen, DNS-filter)"}
+      - {where: FortiAnalyzer, prompt: "Were any threats allowed through, or were they all blocked? Show the action breakdown.", expect: "Verdeling blocked/passed; HTTPS-malware zonder deep inspection komt 'missed' door"}
+      - {where: FortiAnalyzer, prompt: "Which of these events map to MITRE ATT&CK techniques?", expect: "C2/DNS tunneling mappings, indien de ADOM de mapping heeft"}
+    cleanup:
+      - {do: traffic_stop}
+
+  - id: throughput
+    title: "7. Overlay-doorvoer en bandbreedte-hogs"
+    story: >
+      Een iperf3-test van Utrecht naar de AMS-server over de overlay vult de link; je kijkt naar de impact op andere verkeer
+      en laat FortiAI de bandbreedte-verbruikers benoemen.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: br1, preset: normal}
+      - {do: iperf, site: br1, to: srv-ams, seconds: 60, streams: 4}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Which single session or destination used the most bandwidth in the last 15 minutes at FGT-BR1?", expect: "iperf3 (poort 5201) naar 10.21.0.10"}
+      - {where: FortiAnalyzer, prompt: "Did SD-WAN SLA metrics degrade during the large transfer from 10.11.0.50 to 10.21.0.10?", expect: "Latency/jitter-stijging tijdens de overdracht"}
+    cleanup:
+      - {do: traffic_stop}
+
+  - id: config-assist
+    title: "8. Configuratie met FortiAI in FortiManager"
+    story: >
+      Geen verstoring: je gebruikt FortiAI-Assist in FortiManager als co-pilot. Uitleg van de overlay, een nieuw SD-WAN-script
+      genereren, en een mislukte installatie laten verklaren.
+    setup:
+      - {do: clear}
+      - {do: fmg_script, device: FGT-BR1, name: LAB-BAD-SCRIPT, content: "config system sdwan\n  config service\n    edit 99\n      set name BAD-RULE\n      set dst NOPE-DOES-NOT-EXIST\n    next\n  end\nend"}
+    fortiai:
+      - {where: FortiManager, prompt: "Explain the SD-WAN overlay template LAB-OVERLAY: which tunnels, BGP design and ADVPN settings does it create?", expect: "Hubs/spokes, per-underlay IPsec, iBGP, ADVPN-shortcuts"}
+      - {where: FortiManager, prompt: "The script LAB-BAD-SCRIPT failed on FGT-BR1. What is wrong and how do I fix it?", expect: "Verklaart de ongeldige 'dst'-referentie (address object bestaat niet)"}
+      - {where: FortiManager, prompt: "Write a CLI script that adds an SD-WAN service rule for Zoom that prefers the lowest-latency member within SLA HC-DC.", expect: "Script; je past het toe via Device Manager > Scripts"}
+      - {where: FortiManager, prompt: "What changed on FGT-BR3 in the last 24 hours?", expect: "Revisielijst en diff van de installaties"}
+    cleanup: []
+
+  - id: reporting
+    title: "9. Rapportage en SLA-bewijs"
+    story: >
+      Management wil een SLA-overzicht per branch. Met FortiAI vraag je de data op en laat je een rapportstructuur voorstellen.
+    setup:
+      - {do: clear}
+      - {do: traffic, site: all, preset: normal}
+      - {do: sleep, seconds: 120}
+    fortiai:
+      - {where: FortiAnalyzer, prompt: "Give me an SD-WAN SLA summary per branch for the last 24 hours with the number of SLA violations.", expect: "Tabel per FortiGate"}
+      - {where: FortiAnalyzer, prompt: "Which report templates should I use for a monthly SD-WAN and security report for management?", expect: "Voorstellen voor FortiAnalyzer-rapportsjablonen"}
+    cleanup:
+      - {do: traffic_stop}

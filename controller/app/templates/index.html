@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SD-WAN &amp; FortiAI Lab</title>
+  <script src="/static/theme.js"></script>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="strip"><div>Fortinet SE tools</div></div>
+<header>
+<div class="head-in">
+  <div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M7 17l4-6M17 17l-4-6"/></svg></span><h1>SD-WAN &amp; FortiAI Lab</h1></div>
+  <nav>
+    <button data-tab="setup" class="active">1. Setup</button>
+    <button data-tab="lab">2. Lab</button>
+    <button data-tab="cockpit">3. Cockpit</button>
+    <button data-tab="fortiai">4. FortiAI</button>
+    <button data-tab="access">5. Toegang &amp; gidsen</button>
+    <button data-tab="updates">Updates <span id="update-dot" class="dot-new" hidden></span></button>
+  </nav>
+  <span id="hoststatus" class="pill">…</span>
+  <button id="version-pill" class="pill version" data-goto="updates" title="Versie van de controller">…</button>
+  <form method="post" action="/logout" class="logout"><button type="submit" class="ghost">Uitloggen</button></form>
+  <button type="button" class="theme-toggle ghost" data-theme-toggle title="Licht/donker" aria-label="Licht/donker"><svg class="moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
+</div>
+</header>
+
+<main>
+  <!-- SETUP -->
+  <section id="tab-setup" class="tab active">
+    <div class="intro">
+      <p>Vul de stappen in; zodra alles groen is rol je onder <b>2. Lab</b> het lab uit: 2 hubs en 3 branches
+        (FortiGate-VM's), FortiManager, FortiAnalyzer, een ISP-router, datacenter-servers en Traffic-Gen per branch. Daarna
+        bouwt FortiManager de SD-WAN uit templates.</p>
+      <ul id="checklist" class="checklist"></ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><span class="step">1</span> Proxmox-verbinding</h2><span class="badge" data-check="host"></span></div>
+      <p class="help">De controller beheert de Proxmox host via SSH (<code>qm</code>, <code>pct</code>, <code>pvesh</code>); de
+        gegevens zijn door de installer vastgelegd.</p>
+      <div id="host-info"></div>
+      <div class="actions"><button id="btn-host-test">Verbinding testen</button><span id="host-test-result" class="result"></span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><span class="step">2</span> VM-images</h2><span class="badge" data-check="image"></span></div>
+      <p class="help">Download in de Fortinet support portal (<i>Support → VM Images</i>) de <b>KVM</b>-images van
+        <b>FortiOS 7.6</b> (FortiGate-VM), <b>FortiManager 7.6</b> en <b>FortiAnalyzer 7.6</b> (FortiAI vereist 7.6 of nieuwer) en pak ze uit. Upload per product het
+        <code>.qcow2</code>-bestand. De FortiGate-image wordt voor alle vijf de FortiGates gebruikt.</p>
+      <div class="grid2" id="img-fields"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><span class="step">3</span> Netwerk (uplink)</h2><span class="badge" data-check="wan"></span></div>
+      <p class="help">FortiManager en FortiAnalyzer krijgen <b>port1</b> op je netwerk (<span id="up-bridge">-</span>): daarop bereik je
+        de GUI's en hebben ze internet (FortiGuard, <b>FortiAI</b>). De ISP-router geeft de lab-FortiGates internet via zijn uplink.
+        De FortiGates zelf hangen alleen in het lab.</p>
+      <div class="grid2">
+        <div class="field"><label for="i-fmgip">FortiManager IP met prefix</label><input id="i-fmgip" placeholder="192.168.1.60/24"></div>
+        <div class="field"><label for="i-fazip">FortiAnalyzer IP met prefix</label><input id="i-fazip" placeholder="192.168.1.61/24"></div>
+        <div class="field"><label for="i-gw">Default gateway</label><input id="i-gw" placeholder="192.168.1.1"></div>
+        <div class="field"><label for="i-ispip">ISP-router uplink (IP met prefix of dhcp)</label><input id="i-ispip" placeholder="dhcp"></div>
+        <div class="field"><label for="i-dns1">DNS primair</label><input id="i-dns1" placeholder="192.168.1.1"></div>
+        <div class="field"><label for="i-dns2">DNS secundair</label><input id="i-dns2" placeholder="optioneel"></div>
+      </div>
+      <div class="actions"><button class="primary" data-save="wan">Opslaan</button><span class="result" data-result="wan"></span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><span class="step">4</span> Beheerwachtwoord</h2><span class="badge" data-check="admin"></span></div>
+      <p class="help">Eén wachtwoord voor <code>admin</code> op FortiManager, FortiAnalyzer en alle FortiGates.</p>
+      <div class="field"><label for="i-adminpw">Admin-wachtwoord</label>
+        <div class="secret"><input id="i-adminpw" type="password" autocomplete="off" placeholder="minimaal 8 tekens">
+          <button class="eye" data-eye="i-adminpw" type="button" title="Tonen/verbergen"></button>
+          <button class="ghost" id="btn-genpw" type="button">Genereer</button></div>
+        <div class="hint">Minimaal 8 tekens, geen spaties, quotes of backslash.</div></div>
+      <div class="actions"><button class="primary" data-save="admin">Opslaan</button><span class="result" data-result="admin"></span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><span class="step">5</span> Licenties</h2><span class="badge" data-check="license"></span></div>
+      <p class="help">Vijf FortiGate-VM's, FortiManager-VM en FortiAnalyzer-VM. FortiManager/FortiAnalyzer ondersteunen hier een
+        <b>FortiFlex-token</b> (<code>execute vm-license</code>) of evaluatie; een <code>.lic</code> importeer je zelf via de GUI.
+        De <b>FortiAI-licentie</b> hoort bij het FortiCare-account van de FortiManager/FortiAnalyzer (zie het tabblad FortiAI).</p>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="lic" value="fortiflex"><span><b>FortiFlex-tokens</b><small>Per VM een token.</small></span></label>
+        <label class="choice"><input type="radio" name="lic" value="file"><span><b>Licentiebestanden (.lic)</b><small>FortiGates via de config drive; FMG/FAZ zelf in de GUI.</small></span></label>
+        <label class="choice"><input type="radio" name="lic" value="none"><span><b>Geen / later</b><small>Evaluatiemodus.</small></span></label>
+      </div>
+      <div id="lic-fields" class="grid2"></div>
+      <div class="actions"><button class="primary" data-save="license">Opslaan</button><span class="result" data-result="license"></span></div>
+    </div>
+  </section>
+
+  <!-- LAB -->
+  <section id="tab-lab" class="tab">
+    <div class="toolbar">
+      <button id="btn-deploy" class="primary">Volledig lab uitrollen</button>
+      <button id="btn-provision" title="FortiManager/FortiAnalyzer opnieuw provisionen (idempotent)">Opnieuw provisionen</button>
+      <button id="btn-install" title="Device settings en policy package opnieuw installeren">Installeren vanuit FortiManager</button>
+      <button id="btn-config">Gegenereerde config</button>
+      <button id="btn-labnode">Labnode bijwerken</button>
+      <button id="btn-destroy" class="danger">Alles afbreken…</button>
+    </div>
+    <div id="problems" class="banner warnbanner" hidden></div>
+    <div class="selbar">
+      <div class="selinfo"><b id="sel-count">Niets geselecteerd</b>
+        <span class="hint">Vink componenten aan om alleen die uit te rollen of te verwijderen.</span></div>
+      <div class="selactions">
+        <button id="btn-sel-deploy" class="primary" disabled>Uitrollen</button>
+        <button id="btn-sel-recreate" disabled>Opnieuw uitrollen</button>
+        <button id="btn-sel-destroy" class="danger" disabled>Verwijderen</button>
+        <button id="btn-sel-clear" class="ghost" disabled>Selectie wissen</button>
+      </div>
+    </div>
+    <div id="topology"></div>
+    <div class="card">
+      <div class="card-head"><h2>Devices in FortiManager</h2><button id="btn-devices">Verversen</button></div>
+      <div id="devices" class="muted">Klik op Verversen.</div>
+    </div>
+  </section>
+
+  <!-- COCKPIT -->
+  <section id="tab-cockpit" class="tab">
+    <div class="intro">
+      <p>Scenario's veroorzaken een gebeurtenis in het lab (link verslechteren, hub uitzetten, aanvalsverkeer); daarna stel je de
+        bijbehorende <b>FortiAI-Assist</b>-vragen in FortiAnalyzer of FortiManager. <b>Alles herstellen</b> zet links, hubs en verkeer terug.</p>
+      <div class="row"><button id="btn-reset" class="primary">Alles herstellen</button><button id="btn-traffic-stop">Verkeer stoppen</button></div>
+    </div>
+    <div id="scenarios" class="demo-groups"></div>
+    <div class="card">
+      <div class="card-head"><h2>Handmatig</h2></div>
+      <div class="grid2">
+        <div class="field"><label>Link verslechteren</label>
+          <div class="row"><select id="m-site"></select>
+            <select id="m-tr"><option value="A">underlay A</option><option value="B">underlay B</option></select></div>
+          <div class="row"><input id="m-delay" placeholder="delay ms" size="8"><input id="m-jitter" placeholder="jitter ms" size="8"><input id="m-loss" placeholder="loss %" size="8"></div>
+          <div class="row"><button id="m-impair">Toepassen</button><button id="m-down">Link down</button><button id="m-up">Link up</button></div></div>
+        <div class="field"><label>Verkeer en hubs</label>
+          <div class="row"><select id="m-tsite"></select><select id="m-preset"></select><button id="m-traffic">Start verkeer</button></div>
+          <div class="row"><select id="m-hub"></select><button id="m-hubstop">Hub uit</button><button id="m-hubstart">Hub aan</button></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>SD-WAN live (via FortiManager)</h2>
+        <div class="row"><select id="h-dev"></select><button id="btn-health">Health-checks ophalen</button><button id="btn-links">ISP-links</button></div></div>
+      <div id="health" class="muted">Kies een FortiGate.</div>
+    </div>
+  </section>
+
+  <!-- FORTIAI -->
+  <section id="tab-fortiai" class="tab">
+    <div class="card">
+      <div class="card-head"><h2>FortiAI-status</h2><button id="btn-ai-status">Controleren</button></div>
+      <p class="help">FortiAI-Assist in FortiManager en FortiAnalyzer 7.6+ draait in de cloud van Fortinet en vereist een
+        <b>FortiAI-licentie</b> (tokens per maand, gedeeld) en uitgaand internet vanaf <b>port1</b>. Alleen lokale administrators
+        kunnen FortiAI gebruiken. De controle leest het AISN-contract (<code>diagnose fmupdate dbcontract</code>).</p>
+      <div id="ai-status" class="muted">-</div>
+    </div>
+    <div class="card"><div class="card-head"><h2>Prompts per use case</h2><input id="ai-filter" placeholder="filter…" size="24"></div>
+      <div id="ai-prompts"></div></div>
+  </section>
+
+  <!-- ACCESS -->
+  <section id="tab-access" class="tab">
+    <div class="card"><h2>Toegang</h2><div id="access" class="access"></div></div>
+    <div class="card"><h2>Gidsen en praktijkkennis</h2><div id="docs" class="doclist"></div></div>
+  </section>
+
+  <!-- UPDATES -->
+  <section id="tab-updates" class="tab">
+    <div class="card">
+      <div class="card-head"><h2>Controller bijwerken</h2><span id="upd-badge" class="badge"></span></div>
+      <p class="help">De controller is een git-checkout in <code>/opt/sdwlab</code>; instellingen en uploads staan in <code>data/</code> en blijven behouden.</p>
+      <table class="kv"><tr><th>Huidige versie</th><td id="upd-current">-</td></tr><tr><th>Branch</th><td id="upd-branch" class="mono">-</td></tr></table>
+      <div class="actions"><button id="btn-upd-check">Controleren op updates</button>
+        <button id="btn-upd-run" class="primary" hidden>Nu bijwerken</button><span id="upd-result" class="result"></span></div>
+      <div id="upd-commits"></div>
+      <pre id="upd-log" class="logbox" hidden></pre>
+    </div>
+  </section>
+</main>
+
+<aside id="log">
+  <div class="loghead"><b id="log-title">Log</b>
+    <span class="logbtns"><button id="log-stop" class="ghost" hidden>Stop</button><button id="log-close" title="Sluiten (taak loopt door)">×</button></span></div>
+  <pre id="log-body"></pre>
+</aside>
+<button id="job-pill" hidden></button>
+
+<div id="viewer" class="modal" hidden>
+  <div class="modal-box">
+    <div class="card-head"><h2 id="viewer-title">-</h2>
+      <div class="row"><button id="viewer-close" class="ghost">Sluiten</button></div></div>
+    <div id="viewer-body" class="viewer-body"></div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

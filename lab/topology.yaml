@@ -1,0 +1,109 @@
+# SD-WAN & FortiAI Lab - topologie.
+#
+# Twee hubs (datacenters AMS en FRA) en drie branches met elk twee WAN-links. Alle
+# FortiGates worden door FortiManager beheerd; de SD-WAN overlay (IPsec, BGP, ADVPN,
+# SD-WAN zones) komt uit een SD-WAN Overlay Template. Logs gaan naar FortiAnalyzer.
+# Alle lab-bridges hebben GEEN fysieke poort; alleen FortiManager en FortiAnalyzer
+# (port1), de FortiGate-uplinks niet, en de Traffic-Gen-GUI's hangen aan je netwerk.
+
+lab:
+  name: sdwan-aiassist-lab
+  vmid_base: 9300            # isp = base, template = base+1, FMG = +2, FAZ = +3, FGT's +10.., LXC's +30..
+  name_prefix: sdwlab        # Proxmox-namen: <prefix>-<naam>, bijv. sdwlab-fgt-hub-ams
+  uplink_bridge: vmbr0       # fysieke bridge: FMG/FAZ port1, ISP-router (internet), Traffic-Gen GUI
+  template_net: "ip=dhcp"
+  timezone: Europe/Amsterdam
+
+# --- netwerken (bridges zonder fysieke poort) -----------------------------------
+segments:
+  - {id: mgmt,  name: "Lab-management",       bridge: vmbr600, subnet: 10.255.0.0/24, gateway: 10.255.0.1}
+  - {id: dc-ams, name: "Datacenter Amsterdam", bridge: vmbr611, subnet: 10.21.0.0/24,  gateway: 10.21.0.1}
+  - {id: dc-fra, name: "Datacenter Frankfurt", bridge: vmbr612, subnet: 10.22.0.0/24,  gateway: 10.22.0.1}
+  - {id: br1,   name: "Branch Utrecht",        bridge: vmbr621, subnet: 10.11.0.0/24,  gateway: 10.11.0.1}
+  - {id: br2,   name: "Branch Rotterdam",      bridge: vmbr622, subnet: 10.12.0.0/24,  gateway: 10.12.0.1}
+  - {id: br3,   name: "Branch Eindhoven",      bridge: vmbr623, subnet: 10.13.0.0/24,  gateway: 10.13.0.1}
+
+# Per FortiGate en per transport komt er een eigen toegangslink naar de ISP-router (bridge vmbr63x =
+# underlay A, vmbr64x = underlay B; subnet 10.1.<n>.0/24 resp. 10.2.<n>.0/24, ISP .1, site .2). Zo loopt
+# al het verkeer tussen sites echt via de ISP-router en kan daar per link vertraging/verlies worden
+# ingesteld (tc netem). De controller genereert deze segmenten (config.py).
+underlays:
+  A: {name: "Underlay A (internet)",  bridge_base: 630, net: "10.1"}
+  B: {name: "Underlay B (breedband)", bridge_base: 640, net: "10.2"}
+
+# --- beheerplatformen -----------------------------------------------------------
+fortimanager:
+  name: fmg
+  cores: 4
+  memory: 8192
+  data_disk_gb: 80         # extra datadisk (FortiManager heeft 'm nodig voor ADOM-data)
+  mgmt_ip: 10.255.0.10     # port2 (lab-management); port1 = uplink (GUI, internet, FortiGuard/FortiAI)
+  adom: root
+fortianalyzer:
+  name: faz
+  cores: 4
+  memory: 8192
+  data_disk_gb: 150        # logs en indexen
+  mgmt_ip: 10.255.0.11
+  adom: root
+
+# --- FortiGates (FortiGate-VM, FortiOS 7.6) -----------------------------------------
+# port1 = lab-management, port2 = underlay A, port3 = underlay B, port4 = LAN (IP's: zie underlays)
+fortigate:
+  cores: 2
+  memory: 4096
+  log_disk_gb: 32
+sites:
+  - {id: hub-ams, role: hub,   name: "Hub Amsterdam",   hub_rank: 1, lan: dc-ams, mgmt_ip: 10.255.0.21, lan_ip: 10.21.0.1}
+  - {id: hub-fra, role: hub,   name: "Hub Frankfurt",   hub_rank: 2, lan: dc-fra, mgmt_ip: 10.255.0.22, lan_ip: 10.22.0.1}
+  - {id: br1,     role: spoke, name: "Branch Utrecht",    lan: br1, mgmt_ip: 10.255.0.31, lan_ip: 10.11.0.1}
+  - {id: br2,     role: spoke, name: "Branch Rotterdam",  lan: br2, mgmt_ip: 10.255.0.32, lan_ip: 10.12.0.1}
+  - {id: br3,     role: spoke, name: "Branch Eindhoven",  lan: br3, mgmt_ip: 10.255.0.33, lan_ip: 10.13.0.1}
+
+# --- SD-WAN overlay (FortiManager SD-WAN Overlay Template) -------------------------
+sdwan:
+  template: LAB-OVERLAY
+  topology: multi-hub        # FortiManager 7.6: single-hub | dual-hub | multi-hub
+  authmethod: psk
+  as_number: 65000
+  advpn: enable
+  loopback_ip: 172.16.0.0/16
+  overlay_network: 10.10.0.0/16
+  underlays:                 # per transport: FortiGate-interface en underlay-naam
+    - {id: 1, name: UNDERLAY-A, port: port2}
+    - {id: 2, name: UNDERLAY-B, port: port3}
+  zones:
+    overlay: OVERLAY
+    underlay: UNDERLAY
+  health_check:
+    name: HC-DC
+    server: 10.21.0.10       # in AMS; hubs routeren naar elkaar
+    protocol: ping
+    sla: {latency_ms: 80, jitter_ms: 20, loss_pct: 2}
+  # Business-intent regels (SD-WAN rules), van boven naar beneden. 'isdb' = Internet Service Database-namen;
+  # een naam die jouw FortiOS-versie niet kent geeft een waarschuwing, de rest wordt gewoon aangemaakt.
+  rules:
+    - {name: VOICE-VIDEO,   isdb: [Microsoft-Teams, Zoom-Zoom, Webex-Webex], mode: sla, note: "laagste latency binnen de SLA"}
+    - {name: BUSINESS-SAAS, isdb: [Microsoft-Office365, Salesforce-Salesforce, Google-Gmail], mode: sla, note: "SLA-gestuurd, DIA of via hub"}
+    - {name: STREAMING,     isdb: [Netflix-Netflix, Google-YouTube, Spotify-Spotify], mode: cost, note: "goedkoopste link (underlay B), nooit over de overlay"}
+    - {name: DC-APPS,       dst: [10.21.0.0/24, 10.22.0.0/24], mode: sla, note: "interne apps in AMS/FRA via de overlay"}
+
+# --- servers en helpers in LXC --------------------------------------------------------
+nodes:
+  - {name: isp,        role: isp,      note: "underlay-router: routing + NAT naar uplink + tc/netem per link"}
+  - {name: srv-ams,    role: dcserver, segment: dc-ams, ip: 10.21.0.10}
+  - {name: srv-fra,    role: dcserver, segment: dc-fra, ip: 10.22.0.10}
+  - {name: tg-br1,     role: trafficgen, segment: br1,  ip: 10.11.0.50, sites: 8}
+  - {name: tg-br2,     role: trafficgen, segment: br2,  ip: 10.12.0.50, sites: 8}
+  - {name: tg-br3,     role: trafficgen, segment: br3,  ip: 10.13.0.50, sites: 8}
+
+traffic_gen:
+  repo: https://github.com/s-ruiter/Traffic-Gen.git
+  branch: main
+  source_ips: 6              # IP's per branch-Traffic-Gen (simuleert gebruikers)
+  gui_port: 8443
+
+resources:
+  isp: {cores: 2, memory: 1024, disk: 8}
+  dcserver: {cores: 1, memory: 512, disk: 4}
+  trafficgen: {cores: 2, memory: 1024, disk: 4}
