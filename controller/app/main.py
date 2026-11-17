@@ -29,8 +29,15 @@ PUBLIC_PATHS = ("/login", "/static/")
 @app.middleware("http")
 async def require_login(request: Request, call_next):
     path = request.url.path
-    if path.startswith(PUBLIC_PATHS) or auth.valid_session(request.cookies.get(auth.COOKIE)):
+    if path.startswith(PUBLIC_PATHS):
         return await call_next(request)
+    token = request.cookies.get(auth.COOKIE)
+    if auth.valid_session(token):
+        resp = await call_next(request)
+        if auth.needs_renewal(token):
+            resp.set_cookie(auth.COOKIE, auth.new_session(), max_age=auth.SESSION_SECONDS, httponly=True,
+                            samesite="strict", secure=request.url.scheme == "https")
+        return resp
     if path.startswith("/api/"):
         return JSONResponse({"detail": "niet ingelogd"}, status_code=401)
     return RedirectResponse("/login", status_code=303)
@@ -351,6 +358,9 @@ def update_check():
 
 @app.post("/api/update/run")
 def update_run():
+    if any(j["status"] == "running" for j in jobs.recent()):
+        raise HTTPException(409, "Er draait een job; een update herstart de controller en breekt die job af. "
+                                 "Wacht tot hij klaar is of stop hem eerst.")
     try:
         updates.start()
     except Exception as e:  # noqa: BLE001

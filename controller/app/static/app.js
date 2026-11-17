@@ -30,9 +30,9 @@ $$("nav button").forEach((b) => b.addEventListener("click", () => goTo(b.dataset
 document.addEventListener("click", (e) => { const g = e.target.closest("[data-goto]"); if (g) { e.preventDefault(); goTo(g.dataset.goto); } });
 
 // --- joblog ----------------------------------------------------------------
-let logTimer = null, activeJobId = null;
+let logTimer = null, activeJobId = null, logDismissed = false;
 function followJob(job, onDone) {
-  activeJobId = job.id;
+  activeJobId = job.id; logDismissed = false;
   document.body.classList.add("logopen");
   $("#job-pill").hidden = true; $("#log-stop").hidden = false;
   $("#log-title").textContent = job.title; $("#log-body").textContent = "";
@@ -49,7 +49,7 @@ function followJob(job, onDone) {
     }
   }, 1000);
 }
-$("#log-close").onclick = () => { document.body.classList.remove("logopen"); clearInterval(logTimer); refresh(); };
+$("#log-close").onclick = () => { document.body.classList.remove("logopen"); clearInterval(logTimer); activeJobId = null; logDismissed = true; refresh(); };
 $("#log-stop").onclick = () => activeJobId && post(`/api/jobs/${activeJobId}/stop`);
 async function runJob(path, body, confirmMsg) {
   if (confirmMsg && !confirm(confirmMsg)) return;
@@ -69,6 +69,8 @@ async function refresh() {
   const hs = $("#hoststatus");
   hs.hidden = !S.host_error;      // alleen tonen als de host niet bereikbaar is
   renderChecklist(); renderTopology(); renderProblems();
+  const running = (S.jobs || []).find((j) => j.status === "running");      // na (her)login: lopende job weer volgen
+  if (running && !activeJobId && !logDismissed) followJob(running);
 }
 
 function renderProblems() {

@@ -15,7 +15,7 @@ from .config import DATA
 
 COOKIE = "sdwlab_session"
 USERNAME = "admin"
-SESSION_SECONDS = 12 * 3600
+SESSION_SECONDS = 7 * 24 * 3600      # schuivend: elke dag actief gebruik verlengt de sessie
 
 _SECRET_FILE = DATA / "session_secret"
 _PASSWORD_FILE = DATA / "ui_password"
@@ -45,6 +45,14 @@ def check_credentials(username: str, password: str) -> bool:
 def new_session() -> str:
     expiry = int(time.time()) + SESSION_SECONDS
     return f"{expiry}.{_sign(expiry)}"
+
+
+def needs_renewal(token: str | None) -> bool:
+    """Vernieuw de cookie zodra er meer dan een uur van de looptijd is verstreken."""
+    try:
+        return int(token.partition(".")[0]) - time.time() < SESSION_SECONDS - 3600
+    except (AttributeError, ValueError):
+        return False
 
 
 def valid_session(token: str | None) -> bool:
