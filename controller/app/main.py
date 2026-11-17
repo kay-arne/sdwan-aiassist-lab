@@ -43,7 +43,7 @@ async def require_login(request: Request, call_next):
     return RedirectResponse("/login", status_code=303)
 
 
-STATIC_REF = re.compile(r'(/static/[\w.-]+\.(?:css|js))"')
+STATIC_REF = re.compile(r'(/static/[\w.-]+\.(?:css|js|svg))"')
 NO_CACHE = {"Cache-Control": "no-cache"}
 
 
