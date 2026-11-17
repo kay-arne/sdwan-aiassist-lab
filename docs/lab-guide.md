@@ -1,7 +1,7 @@
 # Labgids: een week bij Polder Logistiek
 
 Polder Logistiek heeft twee datacenters (Amsterdam en Frankfurt) en drie vestigingen (Utrecht, Rotterdam, Eindhoven). Elke vestiging
-heeft twee internetlijnen: een glasvezellijn (**underlay A**) en een breedbandlijn (**underlay B**). Alles loopt via FortiGates die
+heeft twee internetlijnen: een glasvezellijn (**WAN-A**) en een breedbandlijn (**WAN-B**). Alles loopt via FortiGates die
 door één FortiManager worden beheerd. Deze gids loopt het verhaal door; elk hoofdstuk is een scenario in het tabblad **Cockpit**.
 
 ## 0. Voorbereiding
@@ -43,7 +43,7 @@ Zet **Hub Amsterdam** uit. Spokes sturen via Frankfurt. In FortiManager zie je d
 
 ## 5. Streaming versus business
 
-Eindhoven start streaming. De rule STREAMING houdt dat op underlay B; business-apps blijven op A. Toon dit per applicatie en per transport.
+Eindhoven start streaming. De rule STREAMING houdt dat op WAN-B; business-apps blijven op WAN-A. Toon dit per applicatie en per transport.
 
 ## 6. Beveiligingsincident (Rotterdam)
 

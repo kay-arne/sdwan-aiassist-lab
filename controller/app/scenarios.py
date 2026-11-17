@@ -8,6 +8,7 @@ import yaml
 
 from . import fmg
 from .config import ROOT, inventory, load_topology, node, nodes_by_role, site_map
+from .deployer import LINKCTL
 from .hostctl import host
 from .jsonrpc import RpcError
 
@@ -23,56 +24,49 @@ def scenario(sid: str) -> dict:
 
 
 # --------------------------------------------------------------------------------------
-# ISP-links
+# WAN-links (impairment per FortiGate-NIC op de tap-interface van de Proxmox host)
 # --------------------------------------------------------------------------------------
-def _iface(topo, site_id: str, transport: str) -> str:
-    """Interface op de ISP-router voor de toegangslink van een site."""
-    from .deployer import isp_nets
-    key = f"wan{'1' if transport.upper() == 'A' else '2'}-{site_id}"
-    for ifc, seg in isp_nets(topo):
-        if seg["id"] == key:
-            return ifc
-    raise ValueError(f"geen link voor {site_id} transport {transport}")
+def _target(topo, site_id: str, transport: str) -> str:
+    """<vmid>:<nic> van de WAN-poort van een site: transport A = net1 (port2), B = net2 (port3)."""
+    s = site_map(topo)[site_id]
+    return f"{s['vmid']}:{1 if transport.upper() == 'A' else 2}"
 
 
-def _isp(topo) -> dict:
-    return nodes_by_role(topo, "isp")[0]
+def _linkctl(args: list[str], timeout=60) -> str:
+    return host().run([LINKCTL, *args], check=False, timeout=timeout).strip()
 
 
 def impair(log, topo, site, transport, delay=None, jitter=None, loss=None, rate=None):
-    args = f"linkctl set {_iface(topo, site, transport)}"
+    args = ["set", _target(topo, site, transport)]
     for k, v in (("delay", delay), ("jitter", jitter), ("loss", loss), ("rate", rate)):
         if v is not None:
-            args += f" --{k} {v}"
-    rc, out = host().pct_exec(_isp(topo)["vmid"], args)
-    log(f"[{site} {transport}] {out.strip()}")
+            args += [f"--{k}", str(v)]
+    log(f"[{site} {transport}] {_linkctl(args)}")
 
 
 def link_state(log, topo, site, transport, state):
-    rc, out = host().pct_exec(_isp(topo)["vmid"], f"linkctl {state} {_iface(topo, site, transport)}")
-    log(f"[{site} {transport}] {out.strip()}")
+    log(f"[{site} {transport}] {_linkctl([state, _target(topo, site, transport)])}")
 
 
 def links(topo) -> dict:
-    rc, out = host().pct_exec(_isp(topo)["vmid"], "linkctl show")
+    targets = {_target(topo, s["id"], t): (s["id"], t) for s in topo["sites"] for t in "AB"}
     try:
-        data = json.loads(out.strip().splitlines()[-1])
+        data = json.loads(_linkctl(["show", *targets]).splitlines()[-1])
     except (ValueError, IndexError):
         return {}
-    from .deployer import isp_nets
-    names = {ifc: seg for ifc, seg in isp_nets(topo)}
-    return {ifc: {**info, "site": names[ifc].get("site"), "transport": names[ifc].get("transport")}
-            for ifc, info in data.items() if ifc in names}
+    return {f"{targets[k][0]} / WAN-{targets[k][1]}": {**v, "site": targets[k][0], "transport": targets[k][1]}
+            for k, v in data.items()}
 
 
 def clear_all(log, topo):
-    host().pct_exec(_isp(topo)["vmid"], "linkctl clear all")
-    log("alle ISP-links schoon en up")
     h = host()
     for s in topo["sites"]:
         if h.status(s["vmid"]) == "stopped":
             h.run(["qm", "start", str(s["vmid"])])
             log(f"{s['hostname']} weer gestart")
+    targets = [_target(topo, s["id"], t) for s in topo["sites"] for t in "AB"]
+    _linkctl(["clear", *targets])
+    log("alle WAN-links schoon en up")
 
 
 # --------------------------------------------------------------------------------------

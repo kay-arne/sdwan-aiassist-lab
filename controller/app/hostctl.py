@@ -1,7 +1,7 @@
 """SSH-koppeling naar de Proxmox host (qm / pct / pvesh).
 
 De installer maakt hiervoor standaard een aparte gebruiker (bijv. 'sdwlab')
-aan die via sudo alleen qm, pct, pvesh en het plaatsen van de config-ISO mag.
+aan die via sudo alleen qm, pct, pvesh, sdwlab-linkctl en het plaatsen van de config-ISO's mag.
 Bij de root-variant wordt sudo overgeslagen.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ class HostError(RuntimeError):
 
 
 # commando's die root nodig hebben (komen overeen met /etc/sudoers.d/sdwlab)
-PRIVILEGED = {"qm", "pct", "pvesh", "install"}
+PRIVILEGED = {"qm", "pct", "pvesh", "install", "/usr/local/sbin/sdwlab-linkctl"}
 
 
 class Host:

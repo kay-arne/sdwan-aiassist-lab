@@ -9,25 +9,27 @@ loslaat. Zelfde opzet als het [FortiGate OT Lab](https://github.com/kay-arne/for
 [FortiADC Lab](https://github.com/kay-arne/fortiadc-lab): één installer op de Proxmox host, een controller-LXC met web UI.
 
 ```
-                      uplink (vmbr0): FMG/FAZ GUI + internet (FortiGuard, FortiAI), ISP-uplink, Traffic-Gen GUI's
-                                  │ port1                           │ port1                    │ eth0
-                           ┌──────┴──────┐                   ┌──────┴──────┐            ┌──────┴───────┐
-                           │ FortiManager│                   │FortiAnalyzer│            │  ISP-router  │  routing, NAT, DNS,
-                           └──────┬──────┘                   └──────┬──────┘            │  (LXC)       │  tc/netem per link
-                                  │ port2 ── lab-management 10.255.0.0/24 ──┘            └───┬──────┬───┘
-                                  │                                                      A│      │B   (10 toegangslinks,
-        ┌────────────┬────────────┼────────────┬────────────┐                              │      │     elk een eigen bridge)
-   FGT-HUB-AMS   FGT-HUB-FRA   FGT-BR1      FGT-BR2      FGT-BR3  ←── port2 = underlay A, port3 = underlay B, port4 = LAN
-   srv-ams       srv-fra       tg-br1       tg-br2       tg-br3
-   (DC-apps)     (DC-apps)     (Traffic-Gen in elk van de branches)
+        uplink (vmbr0, bijv. het VLAN van de controller): internet voor het lab + GUI's
+              │ eth0                  │ port1             │ port1              │ eth0
+       ┌──────┴───────┐        ┌──────┴──────┐     ┌──────┴──────┐      ┌──────┴───────┐
+       │  ISP-router  │        │ FortiManager│     │FortiAnalyzer│      │ Traffic-Gen  │ (GUI)
+       │  (LXC): NAT, │        └──────┬──────┘     └──────┬──────┘      └──────────────┘
+       │  DNS, gateway│               │ port2 ── management (vmbr600, zonder uitgang) ──┐
+       └──┬────────┬──┘               │                                                 │
+     eth2 │        │ eth3             │  controller (eth1) en elke FortiGate (port1) ───┘
+          │        │
+   ═══════╧══ WAN-A (vmbr630, 10.1.0.0/24) ═══════  gedeelde switch: alle hubs en branches, port2
+   ═══════════╧══ WAN-B (vmbr640, 10.2.0.0/24) ═══  gedeelde switch: alle hubs en branches, port3
+          │ │ │ │ │
+     HUB-AMS HUB-FRA BR1 BR2 BR3   (port4 = LAN: srv-ams, srv-fra en Traffic-Gen per branch)
 ```
 
 | Component | Type | Inhoud |
 |---|---|---|
 | `sdwlab-controller` | LXC | web UI, Proxmox-orchestratie, FortiManager/FortiAnalyzer-provisioning, demo-cockpit |
 | `sdwlab-fmg`, `sdwlab-faz` | VM | FortiManager 7.6 en FortiAnalyzer 7.6 (port1 uplink, port2 lab-management), elk met datadisk |
-| `sdwlab-fgt-hub-ams/-fra`, `-br1/2/3` | VM | FortiGate-VM (FortiOS 7.6): port1 mgmt, port2 underlay A, port3 underlay B, port4 LAN |
-| `sdwlab-isp` | LXC | underlay-router: routeert tussen alle toegangslinks, NAT naar internet, DNS en `linkctl` (tc netem) |
+| `sdwlab-fgt-hub-ams/-fra`, `-br1/2/3` | VM | FortiGate-VM (FortiOS 7.6): port1 mgmt, port2 WAN-A, port3 WAN-B, port4 LAN |
+| `sdwlab-isp` | LXC | ISP-router: gateway, NAT en DNS voor WAN-A en WAN-B naar de uplink (internet); de enige plek in het lab met een uitgang naar buiten, naast FortiManager/FortiAnalyzer port1 |
 | `sdwlab-srv-ams/-fra` | LXC | datacenter-apps (HTTP, iperf3) achter de hubs; doel van de SLA-health-check |
 | `sdwlab-tg-br1/2/3` | LXC | Traffic-Gen met zes bron-IP's per branch; GUI op de uplink |
 
@@ -79,7 +81,8 @@ koppel je via FortiCare aan het serienummer van de FortiManager/FortiAnalyzer; d
 | `controller/app/jsonrpc.py`, `console.py` | JSON-RPC-client; seriële console en SSH-CLI |
 | `controller/app/deployer.py` | Proxmox-orchestratie: bridges, VM's, template, ISP, DC-servers, Traffic-Gen |
 | `controller/app/scenarios.py` | cockpit: link-impairment, verkeer, hub aan/uit, iperf, live SD-WAN-status via FortiManager |
-| `labnode/` | `linkctl` (tc netem), `tgctl` (Traffic-Gen-besturing), `dcserver.py` |
+| `host/` | `sdwlab-linkctl`: tc netem per FortiGate-NIC op de Proxmox host (wordt door de controller geïnstalleerd) |
+| `labnode/` | `tgctl` (Traffic-Gen-besturing), `dcserver.py` |
 | `docs/` | labgids, FortiAI-use cases, praktijkkennis |
 
 ## Status

@@ -25,7 +25,7 @@ REPO_URL="${REPO_URL:-https://github.com/kay-arne/sdwan-aiassist-lab.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 TITLE="SD-WAN FortiAI Lab"
 # bridges die het lab zelf aanmaakt (lab/topology.yaml) - niet als uplink aanbieden
-LAB_BRIDGES="vmbr600 vmbr611 vmbr612 vmbr621 vmbr622 vmbr623 vmbr631 vmbr632 vmbr633 vmbr634 vmbr635 vmbr641 vmbr642 vmbr643 vmbr644 vmbr645"
+LAB_BRIDGES="vmbr600 vmbr611 vmbr612 vmbr621 vmbr622 vmbr623 vmbr630 vmbr640"
 
 c_info() { printf '\033[1;36m[sdwlab]\033[0m %s\n' "$*"; }
 c_ok()   { printf '\033[1;32m[sdwlab]\033[0m %s\n' "$*"; }
@@ -147,6 +147,48 @@ existing_controllers() {
     | xargs -r -n1 basename | sed 's/\.conf$//' | sort -n
 }
 
+ensure_mgmt_nic() {
+  local id=$1 br="vmbr600"
+  if ! ip link show "$br" >/dev/null 2>&1; then
+    c_info "Management-bridge $br aanmaken (geen fysieke poort)..."
+    pvesh create "/nodes/$(hostname)/network" --iface "$br" --type bridge --autostart 1 --comments "sdwlab management" >/dev/null
+    pvesh set "/nodes/$(hostname)/network" >/dev/null
+  fi
+  if ! pct config "$id" | grep -q '^net1:'; then
+    c_info "Management-interface (eth1, 10.255.0.2) aan CT $id toevoegen..."
+    pct set "$id" --net1 "name=eth1,bridge=$br,ip=10.255.0.2/24,firewall=0"
+    pct reboot "$id" >/dev/null 2>&1 || { pct stop "$id"; pct start "$id"; }
+    sleep 8
+  fi
+}
+
+# Bij een update: sudo-regels van de host-gebruiker vernieuwen (sdwlab-linkctl) op basis van host.json.
+refresh_sudoers() {
+  local id=$1 cfg user wd pfx site isos="" tmp=/etc/sudoers.d/.sdwlab.tmp
+  cfg="$(pct exec "$id" -- cat /opt/sdwlab/data/host.json 2>/dev/null || true)"
+  [[ -n $cfg ]] || return 0
+  user="$(echo "$cfg" | sed -n 's/.*"ssh_user": *"\([^"]*\)".*/\1/p')"
+  [[ -n $user && $user != root ]] || return 0
+  wd="$(echo "$cfg" | sed -n 's/.*"workdir": *"\([^"]*\)".*/\1/p')"
+  pfx="$(echo "$cfg" | sed -n 's/.*"name_prefix": *"\([^"]*\)".*/\1/p')"
+  for site in hub-ams hub-fra br1 br2 br3; do
+    isos+=", \\
+  $(command -v install) -m 0644 $wd/${pfx}-fgt-${site}-cfg.iso /var/lib/vz/template/iso/${pfx}-fgt-${site}-cfg.iso"
+  done
+  isos+=", \\
+  $(command -v install) -m 0755 $wd/sdwlab-linkctl /usr/local/sbin/sdwlab-linkctl, \\
+  /usr/local/sbin/sdwlab-linkctl"
+  cat > "$tmp" <<EOT
+# SD-WAN FortiAI Lab controller (CT $id). Intrekken met: sdwlab-revoke
+Defaults:$user !requiretty
+$user ALL=(root) NOPASSWD: $(command -v qm), $(command -v pct), $(command -v pvesh)$isos
+EOT
+  chmod 440 "$tmp"
+  visudo -cf "$tmp" >/dev/null || { rm -f "$tmp"; die "Ongeldige sudo-regel gegenereerd."; }
+  mv "$tmp" /etc/sudoers.d/sdwlab
+  c_info "sudo-regels van $user bijgewerkt"
+}
+
 update_controller() {
   local id=$1
   pct config "$id" >/dev/null 2>&1 || die "CT $id bestaat niet."
@@ -155,6 +197,8 @@ update_controller() {
     pct start "$id"
     sleep 5
   fi
+  ensure_mgmt_nic "$id"
+  refresh_sudoers "$id"
   c_info "Controller in CT $id bijwerken..."
   # Oudere versies hebben nog geen update.sh: dan eerst de code ophalen.
   pct exec "$id" -- bash -c 'cd /opt/sdwlab && { [ -f update.sh ] || git pull --ff-only; } && bash update.sh --always' \
@@ -351,7 +395,7 @@ Lab
   VMID's        : $LAB_VMID_BASE - $(( LAB_VMID_BASE + 99 ))
   Naamprefix    : $NAME_PREFIX  ($NAME_PREFIX-fgt-hub-ams, $NAME_PREFIX-tg-br1, ...)
   Proxmox host  : $NODE ($HOST_IP)
-  Host-toegang  : $([[ $HOST_ACCESS == user ]] && echo "gebruiker $HOST_USER (sudo: qm, pct, pvesh)" || echo "root")$([[ $CT_IP == dhcp ]] && echo ", sleutel niet aan IP gebonden (DHCP)")
+  Host-toegang  : $([[ $HOST_ACCESS == user ]] && echo "gebruiker $HOST_USER (sudo: qm, pct, pvesh, sdwlab-linkctl)" || echo "root")$([[ $CT_IP == dhcp ]] && echo ", sleutel niet aan IP gebonden (DHCP)")
 EOF
 }
 
@@ -417,6 +461,15 @@ pct create "$CTID" "$TPL_REF" \
   --onboot 1 \
   --description "SD-WAN FortiAI Lab controller - web UI op poort $UI_PORT" \
   --tags "sdwlab"
+# Management-netwerk (bridge zonder fysieke poort): de controller praat via eth1 met FortiManager,
+# FortiAnalyzer en de FortiGates; daar is geen uitgang naar buiten voor nodig.
+MGMT_BRIDGE="vmbr600"
+if ! ip link show "$MGMT_BRIDGE" >/dev/null 2>&1; then
+  c_info "Management-bridge $MGMT_BRIDGE aanmaken (geen fysieke poort)..."
+  pvesh create "/nodes/$NODE/network" --iface "$MGMT_BRIDGE" --type bridge --autostart 1 --comments "sdwlab management" >/dev/null
+  pvesh set "/nodes/$NODE/network" >/dev/null
+fi
+pct set "$CTID" --net1 "name=eth1,bridge=$MGMT_BRIDGE,ip=10.255.0.2/24,firewall=0"
 pct start "$CTID"
 
 c_info "Wachten op netwerk in de controller..."
@@ -472,6 +525,9 @@ setup_access_user() {
     isos+=", \\
   $(command -v install) -m 0644 $WORKDIR/${NAME_PREFIX}-fgt-${site}-cfg.iso /var/lib/vz/template/iso/${NAME_PREFIX}-fgt-${site}-cfg.iso"
   done
+  isos+=", \\
+  $(command -v install) -m 0755 $WORKDIR/sdwlab-linkctl /usr/local/sbin/sdwlab-linkctl, \\
+  /usr/local/sbin/sdwlab-linkctl"
   cat > "$tmp" <<EOF
 # SD-WAN FortiAI Lab controller (CT $CTID). Intrekken met: sdwlab-revoke
 Defaults:$HOST_USER !requiretty

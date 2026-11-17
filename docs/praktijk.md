@@ -6,10 +6,13 @@ wat je tegenkwam.
 
 ## Ontwerpkeuzes
 
-- **Per site en transport een eigen toegangslink** naar de ISP-router (10 bridges). Anders praten FortiGates op één gedeelde bridge rechtstreeks
-  met elkaar en kun je geen verslechtering per link instellen.
-- **Impairment alleen in de richting ISP → site** (tc netem op de egress van de ISP-interface): een ping vanaf de site ziet vertraging/verlies
-  één keer. Voor symmetrische vertraging stel je ook de andere kant in.
+- **Twee gedeelde WAN-switches** (WAN-A en WAN-B): alle FortiGates hangen op beide, de ISP-router levert gateway, DNS en NAT naar het
+  internet. Zo gedraagt het lab zich als een echt internet-segment (ADVPN-shortcuts, IPsec tussen alle sites). Het gedeelde segment betekent
+  dat FortiGates elkaar rechtstreeks zien; de ISP-router zit er dus niet tussen.
+- **Impairment per FortiGate-NIC op de tap-interface** van de Proxmox host (`sdwlab-linkctl`, tc netem + ifb): vertraging en verlies worden over
+  beide richtingen verdeeld (een ping ziet de ingestelde waarde), `rate` geldt per richting. Link-down is een echte link-down in de gast (QEMU
+  `set_link`). Na het herstarten van een FortiGate-VM is de impairment weg (nieuwe tap); 'Alles herstellen' ruimt alles op.
+- **ISP-router start vóór de FortiGates**: de FortiFlex/FortiCare-licentie-activatie bij de eerste boot heeft DNS en internet nodig.
 - **FortiManager is de enige plek van configuratie**: de bootstrap (config drive) zet alleen interfaces, DNS, default routes, logging en de
   central-management-koppeling; FortiManager voegt de devices toe (`dvm/cmd/add/device`) en installeert daarna.
 - **FortiManager/FortiAnalyzer**: port1 uplink (internet voor FortiGuard en FortiAI), port2 lab-management (10.255.0.0/24).

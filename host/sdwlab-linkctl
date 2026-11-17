@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""sdwlab-linkctl - verslechter of verbreek WAN-links van lab-FortiGates op de Proxmox host.
+
+Alle FortiGates hangen op een gedeelde WAN-bridge (WAN-A / WAN-B). De impairment zit daarom per
+VM-NIC op de tap-interface (tap<vmid>i<nic>), in beide richtingen (egress = naar de VM, via een
+ifb-apparaat ook de richting van de VM af). Vertraging en verlies worden over de twee richtingen
+verdeeld, zodat een ping de ingestelde waarde ziet; 'rate' geldt per richting.
+
+  sdwlab-linkctl show  <vmid>:<nic> ...
+  sdwlab-linkctl set   <vmid>:<nic> [--delay MS] [--jitter MS] [--loss PCT] [--rate MBIT]
+  sdwlab-linkctl clear <vmid>:<nic> ...
+  sdwlab-linkctl down  <vmid>:<nic> | up <vmid>:<nic>      (echte link-down in de gast, via QEMU)
+
+<nic> is het net-nummer van de VM: net1 = port2 (WAN-A), net2 = port3 (WAN-B)."""
+import argparse
+import json
+import re
+import subprocess
+import sys
+
+
+def sh(*cmd, check=True, stdin=None):
+    r = subprocess.run(cmd, capture_output=True, text=True, input=stdin)
+    if check and r.returncode:
+        sys.exit(f"{' '.join(cmd)}: {r.stderr.strip() or r.stdout.strip()}")
+    return r.stdout
+
+
+def split(target):
+    m = re.fullmatch(r"(\d+):(\d)", target)
+    if not m:
+        sys.exit(f"ongeldig doel '{target}' (verwacht <vmid>:<nic>)")
+    return m.group(1), m.group(2), f"tap{m.group(1)}i{m.group(2)}", f"ifb{m.group(1)}i{m.group(2)}"
+
+
+def exists(dev):
+    return subprocess.run(["ip", "link", "show", dev], capture_output=True).returncode == 0
+
+
+def netem_args(a, half):
+    args = ["netem"]
+    if a.delay is not None:
+        d = a.delay / 2 if half else a.delay
+        j = (a.jitter or 0) / 2 if half else (a.jitter or 0)
+        args += ["delay", f"{d:g}ms"] + ([f"{j:g}ms", "distribution", "normal"] if j else [])
+    if a.loss is not None:
+        args += ["loss", f"{(a.loss / 2 if half else a.loss):g}%"]
+    if a.rate is not None:
+        args += ["rate", f"{a.rate:g}mbit"]
+    return args
+
+
+def set_link(a):
+    for t in a.targets:
+        _, _, tap, ifb = split(t)
+        if not exists(tap):
+            sys.exit(f"{tap} bestaat niet (VM niet gestart?)")
+        if not exists(ifb):
+            sh("ip", "link", "add", "name", ifb, "type", "ifb")
+        sh("ip", "link", "set", ifb, "up")
+        if "ingress" not in sh("tc", "qdisc", "show", "dev", tap):
+            sh("tc", "qdisc", "add", "dev", tap, "handle", "ffff:", "ingress")
+            sh("tc", "filter", "add", "dev", tap, "parent", "ffff:", "protocol", "all", "u32", "match", "u32",
+               "0", "0", "action", "mirred", "egress", "redirect", "dev", ifb)
+        both = a.delay is not None or a.loss is not None
+        sh("tc", "qdisc", "replace", "dev", tap, "root", *netem_args(a, both))      # naar de VM
+        sh("tc", "qdisc", "replace", "dev", ifb, "root", *netem_args(a, both))      # van de VM af
+        print(f"{t}: {' '.join(netem_args(a, False)[1:]) or 'geen impairment'}")
+
+
+def clear(a):
+    for t in a.targets:
+        vmid, nic, tap, ifb = split(t)
+        if exists(tap):
+            sh("tc", "qdisc", "del", "dev", tap, "root", check=False)
+            sh("tc", "qdisc", "del", "dev", tap, "ingress", check=False)
+        if exists(ifb):
+            sh("tc", "qdisc", "del", "dev", ifb, "root", check=False)
+            sh("ip", "link", "del", ifb, check=False)
+        link(vmid, nic, "on")
+    print("opgeschoond")
+
+
+def link(vmid, nic, state):
+    if subprocess.run(["qm", "status", vmid], capture_output=True, text=True).stdout.strip() != "status: running":
+        return
+    sh("qm", "monitor", vmid, stdin=f"set_link net{nic} {state}\n", check=False)
+
+
+def show(a):
+    out = {}
+    for t in a.targets:
+        vmid, nic, tap, _ = split(t)
+        q = sh("tc", "qdisc", "show", "dev", tap, check=False) if exists(tap) else ""
+        mon = sh("qm", "monitor", vmid, stdin="info network\n", check=False)
+        down = re.search(rf"net{nic}.*?link=down|net{nic}:.*?link down", mon, re.S) is not None
+        out[t] = {"up": exists(tap) and not down,
+                  "netem": next((l.strip() for l in q.splitlines() if "netem" in l), None)}
+    print(json.dumps(out))
+
+
+def main():
+    p = argparse.ArgumentParser()
+    sub = p.add_subparsers(dest="cmd", required=True)
+    for n in ("show", "clear", "down", "up"):
+        sub.add_parser(n).add_argument("targets", nargs="+")
+    s = sub.add_parser("set")
+    s.add_argument("targets", nargs="+")
+    s.add_argument("--delay", type=float); s.add_argument("--jitter", type=float)
+    s.add_argument("--loss", type=float); s.add_argument("--rate", type=float)
+    a = p.parse_args()
+    if a.cmd == "show": show(a)
+    elif a.cmd == "set": set_link(a)
+    elif a.cmd == "clear": clear(a)
+    else:
+        for t in a.targets:
+            vmid, nic, _, _ = split(t)
+            link(vmid, nic, "off" if a.cmd == "down" else "on")
+            print(f"{t} {a.cmd}")
+
+
+if __name__ == "__main__":
+    main()

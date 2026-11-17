@@ -24,6 +24,7 @@ APT_PACKAGES = ("python3 python3-yaml curl ca-certificates openssl dnsutils tcpd
 TG_SRC = DATA / "trafficgen-src"
 TG_FILES = ["trafficgen.py", "netconf.py", "webui.py", "throughput.py", "report.py", "profiles.yaml"]
 TG_WEB = ["index.html", "favicon.svg"]
+LINKCTL = "/usr/local/sbin/sdwlab-linkctl"
 APPLIANCE_IMAGE = {"fmg": "fmg_image", "faz": "faz_image"}
 
 
@@ -72,6 +73,15 @@ def ensure_bridges(log, topo):
     if created:
         log("netwerkconfig toepassen (ifreload)")
         h.run(["pvesh", "set", f"/nodes/{h.node}/network"])
+
+
+def ensure_host_tools(log):
+    """Host-script voor link-impairment (tc op de tap-interfaces) op de Proxmox host zetten."""
+    h = host()
+    h.run(["mkdir", "-p", h.workdir])
+    h.put(ROOT / "host" / "sdwlab-linkctl", f"{h.workdir}/sdwlab-linkctl")
+    h.run(["install", "-m", "0755", f"{h.workdir}/sdwlab-linkctl", LINKCTL])
+    log(f"{LINKCTL} bijgewerkt op de host")
 
 
 def remove_bridges(log, topo):
@@ -142,7 +152,7 @@ def deploy_fortigate(log, topo, site):
     h.put(iso_local, f"{h.workdir}/{iso_name}")
     h.run(["install", "-m", "0644", f"{h.workdir}/{iso_name}", f"/var/lib/vz/template/iso/{iso_name}"])
     seg = segment_map(topo)
-    nics = [seg["mgmt"]["bridge"], seg[f"wan1-{site['id']}"]["bridge"], seg[f"wan2-{site['id']}"]["bridge"],
+    nics = [seg["mgmt"]["bridge"], seg["wan-A"]["bridge"], seg["wan-B"]["bridge"],
             seg[site["lan"]]["bridge"]]
     args = ["qm", "create", str(vmid), "--name", site["hostname"], "--ostype", "l26", "--cpu", "host",
             "--cores", str(fg["cores"]), "--memory", str(fg["memory"]), "--scsihw", "virtio-scsi-single",
@@ -220,7 +230,6 @@ def push_labnode(log, vmid):
     h.put(_labnode_tarball(), f"{h.workdir}/labnode.tgz")
     h.run(["pct", "push", str(vmid), f"{h.workdir}/labnode.tgz", "/tmp/labnode.tgz"])
     h.pct_exec(vmid, "rm -rf /opt/labnode && tar xzf /tmp/labnode.tgz -C /opt && "
-                     "install -m755 /opt/labnode/linkctl /usr/local/bin/linkctl && "
                      "install -m755 /opt/labnode/tgctl /usr/local/bin/tgctl && "
                      "install -m755 /opt/labnode/dcserver.py /usr/local/bin/dcserver", check=True)
 
@@ -298,11 +307,9 @@ def _clone(log, topo, node, res):
 
 
 def isp_nets(topo) -> list[tuple[str, dict]]:
-    """NIC's van de ISP-router: eth0 uplink, eth1 lab-management, eth2.. de toegangslinks (volgorde van de segmenten)."""
+    """NIC's van de ISP-router: eth0 uplink (internet), eth1 lab-management, eth2 = WAN-A, eth3 = WAN-B."""
     seg = segment_map(topo)
-    nets = [("eth1", seg["mgmt"])] + [(f"eth{2 + i}", s) for i, s in
-                                      enumerate(s for s in topo["segments"] if s.get("kind") == "wan")]
-    return nets
+    return [("eth1", seg["mgmt"]), ("eth2", seg["wan-A"]), ("eth3", seg["wan-B"])]
 
 
 def deploy_isp(log, topo, node):
@@ -322,7 +329,7 @@ def deploy_isp(log, topo, node):
     h.run(["pct", "start", str(vmid)])
     time.sleep(3)
     h.pct_exec(vmid, "systemd-machine-id-setup >/dev/null")
-    listen = ",".join(s["gateway"] for _, s in isp_nets(topo))
+    seg_a, seg_b = segment_map(topo)["wan-A"]["gateway"], segment_map(topo)["wan-B"]["gateway"]
     _write_files(vmid, {
         "/etc/sysctl.d/90-isp.conf": "net.ipv4.ip_forward=1\nnet.ipv4.conf.all.rp_filter=0\n",
         "/etc/nftables.conf": ("flush ruleset\ntable ip nat {\n  chain postrouting {\n"
@@ -333,7 +340,7 @@ def deploy_isp(log, topo, node):
                                     + "bind-interfaces\ncache-size=1000\n"),
     })
     h.pct_exec(vmid, "sysctl --system >/dev/null; systemctl enable --now nftables dnsmasq", check=True)
-    log(f"{node['hostname']}: routing + NAT + DNS actief ({len(isp_nets(topo))} links)")
+    log(f"{node['hostname']}: gateway + NAT + DNS actief op WAN-A ({seg_a}) en WAN-B ({seg_b})")
 
 
 def deploy_dcserver(log, topo, node):
@@ -478,18 +485,22 @@ def provision_all(log, topo):
 
 def deploy_all(log):
     topo = load_topology()
-    log("== 1/6 netwerksegmenten ==")
+    log("== 1/6 netwerk: WAN-A, WAN-B, management en site-LAN's ==")
     ensure_bridges(log, topo)
-    log("== 2/6 FortiManager en FortiAnalyzer ==")
+    ensure_host_tools(log)
+    log("== 2/6 ISP-router (internet/DNS voor de FortiGates; moet eerst draaien voor de licentie-activatie) ==")
+    build_template(log, topo)
+    for node in nodes_by_role(topo, "isp"):
+        deploy_node(log, topo, node)
+    log("== 3/6 FortiManager en FortiAnalyzer ==")
     deploy_appliance(log, topo, "fmg")
     deploy_appliance(log, topo, "faz")
-    log("== 3/6 FortiGates (2 hubs, 3 spokes) ==")
+    log("== 4/6 FortiGates (2 hubs, 3 spokes) en overige helpers (datacenter-servers, Traffic-Gen) ==")
     for site in topo["sites"]:
         deploy_fortigate(log, topo, site)
-    log("== 4/6 LXC-template en helpers (ISP-router, datacenter-servers, Traffic-Gen) ==")
-    build_template(log, topo)
-    for node in sorted(inventory(topo), key=lambda n: n["role"] != "isp"):
-        deploy_node(log, topo, node)
+    for node in inventory(topo):
+        if node["role"] != "isp":
+            deploy_node(log, topo, node)
     log("== 5/6 day-0 en licenties van FortiManager en FortiAnalyzer ==")
     day0_and_license(log, topo)
     log("== 6/6 provisioning via FortiManager ==")
@@ -539,17 +550,18 @@ def deploy_selected(log, items, recreate=False):
     if recreate:
         destroy_selected(log, items - {"network", "config"})
     ensure_bridges(log, topo)
+    ensure_host_tools(log)
+    nodes = [n for n in inventory(topo) if f"node:{n['name']}" in items]
+    if "template" in items or nodes:
+        build_template(log, topo)
+    for n in sorted(nodes, key=lambda n: n["role"] != "isp"):      # ISP-router eerst
+        deploy_node(log, topo, n)
     for kind in ("fmg", "faz"):
         if kind in items:
             deploy_appliance(log, topo, kind)
     for s in topo["sites"]:
         if f"fgt:{s['id']}" in items:
             deploy_fortigate(log, topo, s)
-    nodes = [n for n in inventory(topo) if f"node:{n['name']}" in items]
-    if "template" in items or nodes:
-        build_template(log, topo)
-    for n in nodes:
-        deploy_node(log, topo, n)
     day0_and_license(log, topo, [k for k in ("fmg", "faz") if k in items])
     if "config" in items or any(i.startswith("fgt:") for i in items):
         provision_all(log, topo)

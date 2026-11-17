@@ -29,8 +29,8 @@ def bootstrap_config(topo: dict, state: dict, site: dict) -> str:
     pw = state.get("admin_password") or ""
     lan = seg[site["lan"]]
     mgmt = seg["mgmt"]
-    w1 = seg[f"wan1-{site['id']}"]
-    w2 = seg[f"wan2-{site['id']}"]
+    w1 = seg["wan-A"]
+    w2 = seg["wan-B"]
     dns = w1["gateway"]
     lines = [
         "config system global",

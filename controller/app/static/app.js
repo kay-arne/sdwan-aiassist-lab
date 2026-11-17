@@ -227,7 +227,7 @@ $("#btn-health").onclick = async () => {
 };
 $("#btn-links").onclick = async () => {
   const r = await api("/api/links");
-  $("#health").innerHTML = r.error ? `<span class="warn">${esc(r.error)}</span>` : `<table class="kv"><tr><th>ISP-interface</th><th>Site</th><th>Transport</th><th>Status</th><th>Impairment</th></tr>${Object.entries(r).map(([k, v]) => `<tr><td>${k}</td><td>${esc(v.site)}</td><td>${esc(v.transport)}</td><td>${v.up ? "up" : "<b>down</b>"}</td><td class="mono">${esc(v.netem || "-")}</td></tr>`).join("")}</table>`;
+  $("#health").innerHTML = r.error ? `<span class="warn">${esc(r.error)}</span>` : `<table class="kv"><tr><th>WAN-link</th><th>Site</th><th>Transport</th><th>Status</th><th>Impairment</th></tr>${Object.entries(r).map(([k, v]) => `<tr><td>${k}</td><td>${esc(v.site)}</td><td>${esc(v.transport)}</td><td>${v.up ? "up" : "<b>down</b>"}</td><td class="mono">${esc(v.netem || "-")}</td></tr>`).join("")}</table>`;
 };
 
 // --- FortiAI ------------------------------------------------------------------------------

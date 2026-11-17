@@ -15,8 +15,12 @@ def uplink_ip(topo) -> str:
     return ip.split("/")[0]
 
 
+def mgmt_ip(topo) -> str:
+    return topo["fortianalyzer"]["mgmt_ip"]
+
+
 def client(topo) -> JsonRpc:
-    return JsonRpc(uplink_ip(topo), "admin", get_state().get("admin_password", "")).login()
+    return JsonRpc(mgmt_ip(topo), "admin", get_state().get("admin_password", "")).login()
 
 
 def day0(log, topo):
@@ -39,7 +43,7 @@ def ensure_license(log, topo):
     if st.get("license_mode") != "fortiflex" or not token:
         log("[FortiAnalyzer] geen FortiFlex-token: evaluatiemodus (importeer een .lic zelf via de GUI)")
         return
-    cli = console.wait_ssh(log, uplink_ip(topo), st["admin_password"], "FortiAnalyzer")
+    cli = console.wait_ssh(log, mgmt_ip(topo), st["admin_password"], "FortiAnalyzer")
     try:
         out = cli.run(f"execute vm-license {token}", timeout=90, answer="y")
         log(f"[FortiAnalyzer] FortiFlex-token geactiveerd; herstart ({out.strip()[-120:]})")
@@ -101,7 +105,7 @@ def fortiai_status(topo) -> dict:
     """Is er een FortiAI-licentie (AISN-contract) op FortiAnalyzer en FortiManager?"""
     from . import fmg
     out = {}
-    for label, ip in (("FortiAnalyzer", uplink_ip(topo)), ("FortiManager", fmg.uplink_ip(topo))):
+    for label, ip in (("FortiAnalyzer", mgmt_ip(topo)), ("FortiManager", fmg.mgmt_ip(topo))):
         try:
             cli = console.Cli(ip, get_state().get("admin_password", ""))
             try:

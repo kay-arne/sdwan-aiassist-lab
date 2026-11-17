@@ -3,8 +3,8 @@
 # Twee hubs (datacenters AMS en FRA) en drie branches met elk twee WAN-links. Alle
 # FortiGates worden door FortiManager beheerd; de SD-WAN overlay (IPsec, BGP, ADVPN,
 # SD-WAN zones) komt uit een SD-WAN Overlay Template. Logs gaan naar FortiAnalyzer.
-# Alle lab-bridges hebben GEEN fysieke poort; alleen FortiManager en FortiAnalyzer
-# (port1), de FortiGate-uplinks niet, en de Traffic-Gen-GUI's hangen aan je netwerk.
+# Alle lab-bridges hebben GEEN fysieke poort. Naar buiten (uplink_bridge) gaan alleen de ISP-router
+# (internet voor het hele lab), FortiManager/FortiAnalyzer port1 en de Traffic-Gen-GUI's.
 
 lab:
   name: sdwan-aiassist-lab
@@ -23,13 +23,13 @@ segments:
   - {id: br2,   name: "Branch Rotterdam",      bridge: vmbr622, subnet: 10.12.0.0/24,  gateway: 10.12.0.1}
   - {id: br3,   name: "Branch Eindhoven",      bridge: vmbr623, subnet: 10.13.0.0/24,  gateway: 10.13.0.1}
 
-# Per FortiGate en per transport komt er een eigen toegangslink naar de ISP-router (bridge vmbr63x =
-# underlay A, vmbr64x = underlay B; subnet 10.1.<n>.0/24 resp. 10.2.<n>.0/24, ISP .1, site .2). Zo loopt
-# al het verkeer tussen sites echt via de ISP-router en kan daar per link vertraging/verlies worden
-# ingesteld (tc netem). De controller genereert deze segmenten (config.py).
+# Twee gedeelde WAN-switches (bridges zonder fysieke poort): WAN-A (10.1.0.0/24) en WAN-B (10.2.0.0/24).
+# Alle hubs en branches hangen met één poort op elke WAN-switch; de ISP-router (.1) hangt eraan als
+# gateway/DNS en routeert naar de uplink (internet). Link-impairment (tc netem) zit per FortiGate-NIC
+# op de tap-interface op de Proxmox host (host/sdwlab-linkctl). FortiGate-IP's: .<10+volgnummer>.
 underlays:
-  A: {name: "Underlay A (internet)",  bridge_base: 630, net: "10.1"}
-  B: {name: "Underlay B (breedband)", bridge_base: 640, net: "10.2"}
+  A: {name: "WAN-A (internet)",  bridge: vmbr630, net: "10.1"}
+  B: {name: "WAN-B (breedband)", bridge: vmbr640, net: "10.2"}
 
 # --- beheerplatformen -----------------------------------------------------------
 fortimanager:
@@ -90,7 +90,7 @@ sdwan:
 
 # --- servers en helpers in LXC --------------------------------------------------------
 nodes:
-  - {name: isp,        role: isp,      note: "underlay-router: routing + NAT naar uplink + tc/netem per link"}
+  - {name: isp,        role: isp,      note: "ISP-router: gateway/DNS/NAT voor WAN-A en WAN-B naar de uplink (internet)"}
   - {name: srv-ams,    role: dcserver, segment: dc-ams, ip: 10.21.0.10}
   - {name: srv-fra,    role: dcserver, segment: dc-fra, ip: 10.22.0.10}
   - {name: tg-br1,     role: trafficgen, segment: br1,  ip: 10.11.0.50, sites: 8}

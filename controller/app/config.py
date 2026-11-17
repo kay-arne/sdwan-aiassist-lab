@@ -45,12 +45,13 @@ def load_topology() -> dict:
         s["fgt_name"] = "FGT-" + s["id"].upper()          # naam in FortiManager/FortiOS
         s["idx"] = i + 1
         for key, (tid, u) in zip(("wan1", "wan2"), topo["underlays"].items()):
-            net = f"{u['net']}.{s['idx']}"
-            s[key] = f"{net}.2"
-            s[key + "_gw"] = f"{net}.1"
-            topo["segments"].append({"id": f"{key}-{s['id']}", "name": f"{u['name']} - {s['name']}",
-                                     "bridge": f"vmbr{u['bridge_base'] + s['idx']}", "subnet": f"{net}.0/24",
-                                     "gateway": f"{net}.1", "kind": "wan", "site": s["id"], "transport": tid})
+            s[key] = f"{u['net']}.0.{10 + s['idx']}"
+            s[key + "_gw"] = f"{u['net']}.0.1"
+    # Gedeelde WAN-switches: elke transport is één bridge waar alle FortiGates en de ISP-router op hangen
+    for tid, u in topo["underlays"].items():
+        topo["segments"].append({"id": f"wan-{tid}", "name": u["name"], "bridge": u["bridge"],
+                                 "subnet": f"{u['net']}.0.0/24", "gateway": f"{u['net']}.0.1",
+                                 "kind": "wan", "transport": tid})
     state = get_state()
     topo["wan"] = {**{"mode": "static"}, **state.get("wan", {})}      # uplink-instellingen voor FMG/FAZ
     return topo

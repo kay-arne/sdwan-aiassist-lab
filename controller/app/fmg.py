@@ -27,8 +27,13 @@ def uplink_ip(topo) -> str:
     return ip.split("/")[0]
 
 
+def mgmt_ip(topo) -> str:
+    """Beheeradres (port2, lab-management): daar praat de controller mee; uplink_ip is alleen voor GUI/internet."""
+    return topo["fortimanager"]["mgmt_ip"]
+
+
 def client(topo) -> JsonRpc:
-    return JsonRpc(uplink_ip(topo), "admin", get_state().get("admin_password", "")).login()
+    return JsonRpc(mgmt_ip(topo), "admin", get_state().get("admin_password", "")).login()
 
 
 def adom(topo) -> str:
@@ -58,7 +63,7 @@ def ensure_license(log, topo):
     if st.get("license_mode") != "fortiflex" or not token:
         log("[FortiManager] geen FortiFlex-token: evaluatiemodus (importeer een .lic zelf via de GUI)")
         return
-    cli = console.wait_ssh(log, uplink_ip(topo), st["admin_password"], "FortiManager")
+    cli = console.wait_ssh(log, mgmt_ip(topo), st["admin_password"], "FortiManager")
     try:
         out = cli.run(f"execute vm-license {token}", timeout=90, answer="y")
         log(f"[FortiManager] FortiFlex-token geactiveerd; FortiManager herstart ({out.strip()[-120:]})")
