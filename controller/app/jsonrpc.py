@@ -83,11 +83,18 @@ class JsonRpc:
 
     def wait_task(self, task_id, log=None, timeout=900) -> dict:
         deadline, last = time.time() + timeout, -1
+        changed = beat = time.time()
         while time.time() < deadline:
             t = self.get(f"/task/task/{task_id}") or {}
-            if log and t.get("percent", 0) != last:
-                last = t.get("percent", 0)
-                log(f"  taak {task_id}: {last}% {t.get('title', '')}")
+            if t.get("percent", 0) != last:
+                last, changed = t.get("percent", 0), time.time()
+                if log:
+                    log(f"  taak {task_id}: {last}% {t.get('title', '')}")
+            elif log and time.time() - beat > 30:      # hartslag: houdt de joblog levend en laat 'Stop' werken
+                beat = time.time()
+                log(f"  taak {task_id}: wacht ({last}%, {int(time.time() - changed)}s zonder voortgang)")
+            if time.time() - changed > 300 and t.get("state") not in (TASK_DONE, 8):
+                raise RpcError(f"/task/task/{task_id}", -2, "taak zonder voortgang (5 min): " + self.task_lines(task_id))
             if t.get("state") in (TASK_DONE, 8) or (t.get("percent") == 100 and t.get("state") == TASK_DONE):
                 if t.get("num_err"):
                     raise RpcError(f"/task/task/{task_id}", t.get("num_err"), self.task_lines(task_id))
