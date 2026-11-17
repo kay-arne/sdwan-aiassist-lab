@@ -97,8 +97,29 @@ def device_names(topo) -> list[str]:
     return [s["fgt_name"] for s in topo["sites"]]
 
 
+def version_report(log, topo, rpc: JsonRpc) -> str:
+    """Versies van FortiManager en de eerste FortiGate (voor een duidelijke melding bij 'ostypeunsupport')."""
+    fmg_v, fgt_v = "?", "?"
+    try:
+        st = rpc.get("/sys/status")
+        fmg_v = f"{st.get('Version', '?')}" if isinstance(st, dict) else str(st)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        site = topo["sites"][0]
+        res = rpc.exec("/dvm/cmd/discover/device", {"device": {"ip": site["mgmt_ip"], "adm_usr": "admin",
+                                                               "adm_pass": get_state()["admin_password"]}})
+        d = (res or {}).get("device", res) if isinstance(res, dict) else {}
+        fgt_v = f"{d.get('os_ver', '?')} MR{d.get('mr', '?')} patch {d.get('patch', '?')} build {d.get('build', '?')}"
+    except Exception:  # noqa: BLE001
+        pass
+    log(f"[FortiManager] versies: FortiManager {fmg_v}; FortiGate {fgt_v}")
+    return f"FortiManager {fmg_v} / FortiGate {fgt_v}"
+
+
 def add_devices(log, topo, rpc: JsonRpc, warn):
     ad = adom(topo)
+    versions = version_report(log, topo, rpc)
     known = {d["name"]: d for d in (rpc.get(f"/dvmdb/adom/{ad}/device") or [])}
     for site in topo["sites"]:
         name = site["fgt_name"]
@@ -116,6 +137,15 @@ def add_devices(log, topo, rpc: JsonRpc, warn):
                 rpc.wait_task(res["taskid"], log)
         except RpcError as e:
             warn(f"{name} toevoegen: {e}")
+    have = {d["name"] for d in (rpc.get(f"/dvmdb/adom/{ad}/device") or [])}
+    missing = [s["fgt_name"] for s in topo["sites"] if s["fgt_name"] not in have]
+    if missing:
+        raise RuntimeError(
+            f"Devices niet toegevoegd aan FortiManager: {', '.join(missing)}. 'ostypeunsupport' betekent dat deze "
+            f"FortiManager de FortiOS-versie van de FortiGate niet ondersteunt ({versions}). Gebruik een FortiManager "
+            "met dezelfde of een nieuwere 7.6.x-versie dan de FortiGate (of een iets oudere FortiGate-image), en "
+            "rol de FortiManager/FortiGates daarna opnieuw uit. Controleer de ondersteuning in de FortiManager "
+            "Release Notes (FortiOS compatibility) van jouw versie.")
     # groepen voor de overlay template
     for grp, members in ((SPOKE_GROUP, spokes(topo)), (HUB_GROUP, hubs(topo))):
         try:
