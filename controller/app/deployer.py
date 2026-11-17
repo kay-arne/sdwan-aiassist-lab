@@ -474,11 +474,12 @@ def apply_traffic_config(log):
 def day0_and_license(log, topo, kinds=("fmg", "faz")):
     for kind in kinds:
         mod = fmg if kind == "fmg" else faz
-        if get_state().get(f"{kind}_day0"):
-            continue
-        mod.day0(log, topo)
-        update_state(**{f"{kind}_day0": True})
-        mod.ensure_license(log, topo)
+        if not get_state().get(f"{kind}_day0"):
+            mod.day0(log, topo)
+            update_state(**{f"{kind}_day0": True})
+        if not get_state().get(f"{kind}_licensed"):      # losse stap, zodat een mislukte licentie opnieuw wordt geprobeerd
+            mod.ensure_license(log, topo)
+            update_state(**{f"{kind}_licensed": True})
 
 
 def provision_all(log, topo):
@@ -546,7 +547,7 @@ def destroy_selected(log, items):
     for kind, cfg in (("fmg", topo["fortimanager"]), ("faz", topo["fortianalyzer"])):
         if kind in items:
             _destroy_vmid(log, h, cfg["vmid"], vm_name(topo, cfg["name"]))
-            update_state(**{f"{kind}_day0": False})
+            update_state(**{f"{kind}_day0": False, f"{kind}_licensed": False})
             _release_license(log, kind)
     if "template" in items:
         _destroy_vmid(log, h, template_vmid(topo), vm_name(topo, "template"))
@@ -599,4 +600,4 @@ def destroy_all(log, remove_template=False, remove_net=False):
         fortiflex.release_all(log)
     if remove_net:
         remove_bridges(log, topo)
-    update_state(deployed=False, fmg_day0=False, faz_day0=False, fmg_provisioned=False)
+    update_state(deployed=False, fmg_day0=False, faz_day0=False, fmg_licensed=False, faz_licensed=False, fmg_provisioned=False)
