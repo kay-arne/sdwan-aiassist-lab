@@ -395,6 +395,11 @@ def provision(log, topo, devices=None) -> list[str]:
 
     if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager"):
         time.sleep(30)
+    wan = get_state().get("wan") or {}
+    cidr = wan.get("fmg_ip", "")
+    plen = int(cidr.split("/")[1]) if "/" in cidr else 24
+    console.ensure_uplink(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager", cidr.split("/")[0],
+                          console.netmask_of(plen), wan.get("gateway", ""))
     console.allow_vm_devices(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager")
     rpc = wait_api(log, topo)
     ensure_adom(log, rpc, adom(topo), "FortiManager")

@@ -73,6 +73,11 @@ def wait_api(log, topo, timeout=900) -> JsonRpc:
 def authorize_devices(log, topo, warn):
     """De FortiGates sturen logs naar FortiAnalyzer; ze verschijnen als 'unregistered' en worden
     hier geautoriseerd (of, als dat al gebeurd is, overgeslagen)."""
+    wan = get_state().get("wan") or {}
+    cidr = wan.get("faz_ip", "")
+    plen = int(cidr.split("/")[1]) if "/" in cidr else 24
+    console.ensure_uplink(log, mgmt_ip(topo), get_state()["admin_password"], "FortiAnalyzer", cidr.split("/")[0],
+                          console.netmask_of(plen), wan.get("gateway", ""))
     if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiAnalyzer"):
         time.sleep(30)
     rpc = wait_api(log, topo)

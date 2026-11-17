@@ -32,7 +32,7 @@ def bootstrap_cli(*, hostname: str, password: str, ports: dict[str, tuple[str, s
     lines = ["config system global", f"  set hostname {hostname}", "  set admin-timeout 480", "end"]
     lines += ["config system interface"]
     for port, (ip, mask) in ports.items():
-        lines += [f"  edit {port}", f"    set ip {ip} {mask}", "    set allowaccess https ssh ping",
+        lines += [f"  edit {port}", "    set mode static", f"    set ip {ip} {mask}", "    set allowaccess https ssh ping",
                   "    set status up", "  next"]
     lines += ["end", "config system route", "  edit 1", f"    set gateway {gateway}", "    set device port1",
               "  next", "end", "config system dns", f"  set primary {dns[0]}"]
@@ -182,6 +182,27 @@ def allow_vm_devices(log, ip: str, password: str, label: str):
         cli.run("set fgfm-allow-vm enable")
         out = cli.run("end", timeout=30, answer="y")
         log(f"[{label}] fgfm-allow-vm enable{(' (' + out.strip()[-80:] + ')') if 'rror' in out else ''}")
+    finally:
+        cli.close()
+
+
+def ensure_uplink(log, ip: str, password: str, label: str, uplink: str, mask: str, gateway: str):
+    """port1 staat op FortiManager/FortiAnalyzer standaard op DHCP; zonder 'set mode static' werkt 'set ip' niet.
+    Controleert het uplink-IP en zet het (idempotent) goed, zodat ook bestaande VM's hersteld worden."""
+    cli = Cli(ip, password)
+    try:
+        out = cli.run("get system interface", timeout=30)
+        m = re.search(r"\[ port1 \]\s*name: port1\s+status: \w+\s+mode: (\w+)\s+ip: (\S+)", out)
+        if m and m.group(1) == "static" and m.group(2) == uplink:
+            return
+        log(f"[{label}] port1 staat op {m.group(1) + ' ' + m.group(2) if m else '?'}; zetten op static {uplink}")
+        for line in ("config system interface", "edit port1", "set mode static", f"set ip {uplink} {mask}",
+                     "set allowaccess https ssh ping", "set status up", "next", "end",
+                     "config system route", "edit 1", f"set gateway {gateway}", "set device port1", "next", "end"):
+            cli.run(line)
+        out = cli.run("get system interface", timeout=30)
+        m = re.search(r"\[ port1 \]\s*name: port1\s+status: \w+\s+mode: (\w+)\s+ip: (\S+)", out)
+        log(f"[{label}] port1 nu: {m.group(1) + ' ' + m.group(2) if m else '?'}")
     finally:
         cli.close()
 
