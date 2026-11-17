@@ -60,6 +60,8 @@ function viewer(title, html) { $("#viewer-title").textContent = title; $("#viewe
 $("#viewer-close").onclick = () => ($("#viewer").hidden = true);
 
 // --- status ----------------------------------------------------------------
+// wachtwoord verborgen tonen, met oog (tonen/verbergen) en kopieerknop
+const pwCell = (v) => v ? `<span class="pwcell"><code class="pw" data-pw="${esc(v)}">••••••••••</code><button type="button" class="eye small" data-reveal title="Tonen/verbergen"></button><button type="button" class="ghost small" data-copy="${esc(v)}">Kopieer</button></span>` : "-";
 const stBadge = (s) => `<span class="tag ${s === "running" ? "ok" : s === "absent" ? "absent" : "warn"}">${esc(s)}</span>`;
 
 async function refresh() {
@@ -131,6 +133,8 @@ $("#btn-devices").onclick = async () => {
 
 // --- setup ----------------------------------------------------------------------
 document.addEventListener("click", (e) => {
+  const rv = e.target.closest("[data-reveal]");
+  if (rv) { const c = rv.parentElement.querySelector(".pw"); const open = rv.classList.toggle("open"); c.textContent = open ? c.dataset.pw : "••••••••••"; }
   const eye = e.target.closest("[data-eye]");
   if (eye) { const i = $("#" + eye.dataset.eye); i.type = i.type === "password" ? "text" : "password"; }
 });
@@ -156,7 +160,7 @@ async function uploadLicense(site, file) {
 async function loadSettings() {
   const [s, h] = await Promise.all([api("/api/settings"), api("/api/host")]);
   const topo = CAT || (CAT = await api("/api/scenarios"));
-  $("#host-info").innerHTML = h.configured ? `<table class="kv"><tr><th>Host</th><td>${esc(h.host)} (node ${esc(h.node)})</td></tr><tr><th>Gebruiker</th><td>${esc(h.ssh_user)}</td></tr><tr><th>Storage</th><td>${esc(h.storage)}</td></tr><tr><th>Uplink-bridge</th><td>${esc(h.uplink_bridge)}</td></tr><tr><th>VMID-reeks</th><td>${esc(h.vmid_range)}</td></tr><tr><th>UI-wachtwoord</th><td class="mono">${esc(h.ui_password)}</td></tr></table>` : "<i>Nog niet geconfigureerd door de installer.</i>";
+  $("#host-info").innerHTML = h.configured ? `<table class="kv"><tr><th>Host</th><td>${esc(h.host)} (node ${esc(h.node)})</td></tr><tr><th>Gebruiker</th><td>${esc(h.ssh_user)}</td></tr><tr><th>Storage</th><td>${esc(h.storage)}</td></tr><tr><th>Uplink-bridge</th><td>${esc(h.uplink_bridge)}</td></tr><tr><th>VMID-reeks</th><td>${esc(h.vmid_range)}</td></tr><tr><th>UI-wachtwoord</th><td>${pwCell(h.ui_password)}</td></tr></table>` : "<i>Nog niet geconfigureerd door de installer.</i>";
   $("#up-bridge").textContent = h.uplink_bridge || "-";
   $("#img-fields").innerHTML = [["fgt", "FortiGate-VM (FortiOS 7.6)"], ["fmg", "FortiManager 7.6"], ["faz", "FortiAnalyzer 7.6"]].map(([k, t]) =>
     `<div class="field"><label>${t}</label><div class="row"><input type="file" id="f-${k}" accept=".qcow2"><button data-up="${k}">Uploaden</button></div><progress id="p-${k}" max="100" value="0" hidden></progress><div class="current">Huidig: <b>${esc(s.images[k] || "geen")}</b></div></div>`).join("");
@@ -276,7 +280,7 @@ async function loadAccess() {
   const a = await api("/api/access");
   const row = (x) => `<div class="acc"><div class="acc-title"><b>${esc(x.name)}</b></div><div class="muted">${esc(x.note)}</div>
     <div class="acc-url">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>` : "<i class=\"muted\">nog geen adres (niet uitgerold?)</i>"}</div>
-    <div class="acc-cred"><code>${esc(x.user)}</code><code>${esc(x.password)}</code></div></div>`;
+    <div class="acc-cred"><code>${esc(x.user)}</code>${pwCell(x.password)}</div></div>`;
   $("#access").innerHTML = "<h3>Platformen en FortiGates</h3>" + a.platforms.map(row).join("") + "<h3>Traffic-Gen</h3>" + a.trafficgen.map(row).join("");
   const docs = await api("/api/docs");
   $("#docs").innerHTML = docs.map((d) => `<a href="#" class="doc" data-doc="${d.id}">${esc(d.title)}</a>`).join("");
