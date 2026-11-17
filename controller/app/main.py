@@ -238,7 +238,9 @@ def fortiflex_entitlement(a: FlexAction):
         raise HTTPException(400, "onbekend apparaat")
     try:
         for k in targets:
-            if a.action == "create":
+            if a.action == "activate":
+                fortiflex.activate(lines.append, topo, k)
+            elif a.action == "create":
                 fortiflex.create(lines.append, topo, k)
             elif a.action == "token":
                 fortiflex.new_token(lines.append, k)

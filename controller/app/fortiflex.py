@@ -318,3 +318,35 @@ def unlink(log, key: str):
     serial = ents.pop(key, None)
     update_state(fortiflex_entitlements=ents)
     log(f"[FortiFlex] {key}: koppeling met {serial or '-'} verwijderd")
+
+
+def activate(log, topo, key: str):
+    """Zorg dat de entitlement van een apparaat ACTIVE is: aanmaken (direct actief), of een gestopte reactiveren."""
+    config_id = ensure_config(log, topo, _kind(key))
+    ent = _find(topo, key, config_id)
+    if not ent or ent.get("status") == "EXPIRED":
+        res = call("entitlements/vm/create", {"configId": config_id, "count": 1, "description": _desc(topo, key),
+                                              "skipPending": True})
+        ent = _one(res.get("entitlements"))
+        _remember(key, ent["serialNumber"])
+        log(f"[FortiFlex] {key}: entitlement {ent['serialNumber']} aangemaakt (actief)")
+        return
+    _remember(key, ent["serialNumber"])
+    status = ent.get("status")
+    if status == "ACTIVE":
+        return
+    try:
+        call("entitlements/reactivate", {"serialNumber": ent["serialNumber"]})
+        log(f"[FortiFlex] {key}: entitlement {ent['serialNumber']} {status} -> ACTIVE")
+    except FlexError as e:
+        log(f"⚠ [FortiFlex] {key}: {ent['serialNumber']} staat op {status} en kon niet geactiveerd worden ({e}); "
+            "wordt actief zodra de token wordt gebruikt")
+
+
+def activate_all(log, topo, keys=None):
+    """Alle (of de opgegeven) entitlements van dit lab op ACTIVE zetten, vóór de uitrol."""
+    wanted = set(keys) if keys is not None else None
+    log("== FortiFlex: entitlements activeren ==")
+    for key, _ in device_keys(topo):
+        if wanted is None or key in wanted:
+            activate(log, topo, key)

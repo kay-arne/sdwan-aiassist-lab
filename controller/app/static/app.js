@@ -219,6 +219,7 @@ document.addEventListener("click", (e) => {
 $("#ff-test").onclick = () => ffCall("/api/fortiflex/test");
 $("#ff-configs").onclick = () => ffCall("/api/fortiflex/configs");
 $("#ff-refresh").onclick = () => loadFlex();
+$("#ff-activate-all").onclick = () => ffCall("/api/fortiflex/entitlement", "POST", { device: "all", action: "activate" });
 $("#ff-create-all").onclick = () => ffCall("/api/fortiflex/entitlement", "POST", { device: "all", action: "create" });
 $("#ff-stop").onclick = () => confirm("Alle FortiFlex-entitlements van dit lab stoppen?") && ffCall("/api/fortiflex/entitlement", "POST", { device: "all", action: "stop" });
 $$("input[name=lic]").forEach((r) => (r.onchange = async () => renderLic(await api("/api/settings"), CAT)));

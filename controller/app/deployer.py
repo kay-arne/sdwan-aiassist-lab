@@ -491,6 +491,9 @@ def provision_all(log, topo):
 
 def deploy_all(log):
     topo = load_topology()
+    from . import fortiflex
+    if fortiflex.is_api_mode():
+        fortiflex.activate_all(log, topo)
     log("== 1/6 netwerk: WAN-A, WAN-B, management en site-LAN's ==")
     ensure_bridges(log, topo)
     ensure_host_tools(log)
@@ -564,6 +567,11 @@ def deploy_selected(log, items, recreate=False):
     topo, items = load_topology(), set(items)
     if recreate:
         destroy_selected(log, items - {"network", "config"})
+    from . import fortiflex
+    if fortiflex.is_api_mode():
+        keys = [k for k in items if k in ("fmg", "faz") or k.startswith("fgt:")]
+        if keys:
+            fortiflex.activate_all(log, topo, keys)
     ensure_bridges(log, topo)
     ensure_host_tools(log)
     nodes = [n for n in inventory(topo) if f"node:{n['name']}" in items]
