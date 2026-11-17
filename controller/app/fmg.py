@@ -131,8 +131,7 @@ def add_devices(log, topo, rpc: JsonRpc, warn):
             res = rpc.exec("/dvm/cmd/add/device", {
                 "adom": ad, "flags": ["create_task", "nonblocking"],
                 "device": {"name": name, "ip": site["mgmt_ip"], "adm_usr": "admin",
-                           "adm_pass": get_state()["admin_password"], "mgmt_mode": "fmgfaz",
-                           "device action": "add_model"}})
+                           "adm_pass": get_state()["admin_password"], "mgmt_mode": "fmgfaz"}})
             if isinstance(res, dict) and res.get("taskid"):
                 rpc.wait_task(res["taskid"], log)
         except RpcError as e:
@@ -141,11 +140,10 @@ def add_devices(log, topo, rpc: JsonRpc, warn):
     missing = [s["fgt_name"] for s in topo["sites"] if s["fgt_name"] not in have]
     if missing:
         raise RuntimeError(
-            f"Devices niet toegevoegd aan FortiManager: {', '.join(missing)}. 'ostypeunsupport' betekent dat deze "
-            f"FortiManager de FortiOS-versie van de FortiGate niet ondersteunt ({versions}). Gebruik een FortiManager "
-            "met dezelfde of een nieuwere 7.6.x-versie dan de FortiGate (of een iets oudere FortiGate-image), en "
-            "rol de FortiManager/FortiGates daarna opnieuw uit. Controleer de ondersteuning in de FortiManager "
-            "Release Notes (FortiOS compatibility) van jouw versie.")
+            f"Devices niet toegevoegd aan FortiManager: {', '.join(missing)}. zie de waarschuwingen hierboven. "
+            f"Bij 'ostypeunsupport': FortiManager en FortiGate hebben mogelijk niet-compatibele versies ({versions}); "
+            "controleer ook of de ADOM (root) dezelfde FortiOS-versie heeft als de FortiGate, en of de FortiGate "
+            "FortiManager bereikt op tcp/541 (FGFM) via het management-netwerk.")
     # groepen voor de overlay template
     for grp, members in ((SPOKE_GROUP, spokes(topo)), (HUB_GROUP, hubs(topo))):
         try:
