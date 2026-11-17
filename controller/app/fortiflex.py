@@ -30,7 +30,7 @@ PRODUCTS = {
 }
 DEFAULTS = {
     "fgt": {"cpu": 2, "service": "UTP"},
-    "fmg": {"device": 20, "adom": 5, "service": "FMGFC247", "addons": ["FMGAISN"], "fortiAITokens": 100000},
+    "fmg": {"device": 20, "adom": 5, "service": "FMGFC247", "addons": ["FMGAISN"], "fortiAITokens": 500000},
     "faz": {"storage": 10, "adom": 5, "service": "FAZFC247", "addons": ["FAZAISN"]},
 }
 LABEL = {"fgt": "FortiGate-VM", "fmg": "FortiManager-VM", "faz": "FortiAnalyzer-VM"}
@@ -134,6 +134,8 @@ def ensure_config(log, topo, kind: str) -> int:
         if cfg.get("name") == name:
             return int(cfg["id"])
     values = spec(topo, kind)
+    if values.get("fortiAITokens"):      # FortiFlex: 0 of een veelvoud van 500000 (min 500000, max 500000000)
+        values["fortiAITokens"] = min(500_000_000, max(500_000, round(int(values["fortiAITokens"]) / 500_000) * 500_000))
     res = call("configs/create", {"programSerialNumber": program_serial(), "name": name,
                                   "productTypeId": PRODUCTS[kind]["product"],
                                   "parameters": _parameters(kind, values), **_base(c)})

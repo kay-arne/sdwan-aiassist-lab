@@ -92,10 +92,10 @@ sdwan:
 # De controller maakt per type één configuratie <prefix>-fgt / -fmg / -faz aan (als hij nog niet bestaat) en
 # daaruit per apparaat één entitlement. Pas de waarden hier aan voordat je voor het eerst uitrolt; wijzigingen
 # gelden niet voor bestaande configuraties (pas die in het FortiFlex-portaal aan). Controleer de kosten met de
-# FortiFlex-calculator: fortiAITokens bepaalt het FortiAI-budget van FortiManager.
+# FortiFlex-calculator: fortiAITokens bepaalt het FortiAI-budget van FortiManager (0, of een veelvoud van 500000).
 fortiflex:
   fgt: {cpu: 2, service: UTP}                       # service: FC | UTP | ENT | ATP
-  fmg: {device: 20, adom: 5, service: FMGFC247, addons: [FMGAISN], fortiAITokens: 100000}
+  fmg: {device: 20, adom: 5, service: FMGFC247, addons: [FMGAISN], fortiAITokens: 500000}
   faz: {storage: 10, adom: 5, service: FAZFC247, addons: [FAZAISN]}
 
 # --- servers en helpers in LXC --------------------------------------------------------

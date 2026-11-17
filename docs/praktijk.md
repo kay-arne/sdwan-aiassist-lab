@@ -62,7 +62,7 @@ Het programma-serienummer is optioneel (leeg = eerste programma van de gebruiker
 - **Opnieuw uitrollen**: een bestaande entitlement wordt gereactiveerd en krijgt een nieuwe token; je hoeft niets handmatig te maken.
 - **Verwijderen**: bij het verwijderen van een VM (of het hele lab) stopt de controller de entitlement, zodat er geen punten meer worden
   verbruikt. 'Alle entitlements stoppen' in Setup doet dat ook handmatig.
-- **FortiAI**: de FortiManager-configuratie bevat de add-on `FMGAISN` met `fortiAITokens` en FortiAnalyzer `FAZAISN`. Controleer de
+- **FortiAI**: de FortiManager-configuratie bevat de add-on `FMGAISN` met `fortiAITokens` (0 of een veelvoud van 500000; standaard 500000) en FortiAnalyzer `FAZAISN`. Controleer de
   puntenkosten met de FortiFlex-calculator voordat je uitrolt; pas de waarden aan in `topology.yaml` voor de eerste uitrol.
 - De API-paden en parameter-ID's komen uit Fortinets Ansible/Terraform-collecties voor FortiFlex v2 en zijn niet tegen jouw account
   getest; fouten staan in de joblog. Het API-wachtwoord staat (zoals het admin-wachtwoord) in `data/state.json` van de controller.
