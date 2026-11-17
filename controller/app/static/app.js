@@ -65,7 +65,7 @@ const stBadge = (s) => `<span class="tag ${s === "running" ? "ok" : s === "absen
 async function refresh() {
   try { S = await api("/api/status"); } catch (e) { return; }
   const hs = $("#hoststatus");
-  hs.textContent = S.host_error ? "host niet bereikbaar" : "host OK"; hs.className = "pill " + (S.host_error ? "bad" : "good");
+  hs.hidden = !S.host_error;      // alleen tonen als de host niet bereikbaar is
   renderChecklist(); renderTopology(); renderProblems();
 }
 
@@ -282,12 +282,16 @@ async function loadAccess() {
 // --- updates --------------------------------------------------------------------------------------------
 async function loadVersion() {
   const v = await api("/api/version");
-  $("#version-pill").textContent = v.git ? v.commit : "n/a";
+  $("#version-text").textContent = v.git ? v.commit : "n/a";
   $("#upd-current").textContent = v.git ? `${v.commit} ${v.subject}` : "geen git-checkout"; $("#upd-branch").textContent = v.branch || "-";
+}
+async function checkUpdates() {      // stille controle: stipje op het buildnummer als er een update is
+  try { const r = await post("/api/update/check"); $("#update-dot").hidden = !r.behind; return r; } catch (e) { return null; }
 }
 $("#btn-upd-check").onclick = async () => {
   try {
     const r = await post("/api/update/check");
+    $("#update-dot").hidden = !r.behind;
     $("#upd-result").textContent = r.behind ? `${r.behind} nieuwe commit(s)` : "up-to-date";
     $("#btn-upd-run").hidden = !r.behind;
     $("#upd-commits").innerHTML = r.commits.map((c) => `<div>${esc(c.commit)} ${esc(c.subject)}</div>`).join("");
@@ -298,4 +302,4 @@ $("#btn-upd-run").onclick = async () => {
   let off = 0; const t = setInterval(async () => { const r = await api("/api/update/log?offset=" + off); off = r.offset; $("#upd-log").textContent += r.lines.join("\n") + (r.lines.length ? "\n" : ""); if (!r.running) { clearInterval(t); setTimeout(() => location.reload(), 3000); } }, 1500);
 };
 
-loadSettings(); refresh(); loadVersion(); setInterval(refresh, 15000);
+loadSettings(); refresh(); loadVersion(); checkUpdates(); setInterval(refresh, 15000); setInterval(checkUpdates, 6 * 3600 * 1000);
