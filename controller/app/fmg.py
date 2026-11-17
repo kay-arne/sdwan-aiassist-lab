@@ -188,26 +188,24 @@ def add_devices(log, topo, rpc: JsonRpc, warn):
 # SD-WAN overlay template
 # --------------------------------------------------------------------------------------
 def overlay_payload(topo) -> dict:
+    """Schema volgens 'get ... option=syntax' op FortiManager 7.6.8 (/sdwan/overlay):
+    - basisattributen op het overlay-object (zonder name/nodes);
+    - nodes zijn een subtabel (.../sdwan/overlay/nodes), met per node een subtabel 'underlay'."""
     sd = topo["sdwan"]
     hub_list = hubs(topo)
-    underlay_for = lambda: [{"id": u["id"], "cost": 0, "interface": u["port"], "private-link": "disable",
-                             "override-ip": "disable", "ip": None, "transport-group": 0}
-                            for u in sd["underlays"]]
-    nodes, nid = [], 1
-    for h in hub_list:
-        nodes.append({"_scope": {"name": h["fgt_name"], "vdom": "root"}, "underlay": underlay_for(),
-                      "advertisement": "connected", "role": "hub", "hub-role": "standalone",
-                      "prefix": [], "id": nid})
-        nid += 1
-    nodes.append({"_scope": {"name": SPOKE_GROUP, "is group": 1}, "underlay": underlay_for(),
-                  "advertisement": "connected", "role": "spoke", "id": nid})
-    return {
-        "name": sd["template"], "authmethod": sd["authmethod"], "topology": sd["topology"],
-        "loopback-ip": _mask(sd["loopback_ip"]), "overlay-network": _mask(sd["overlay_network"]),
-        "as": sd["as_number"], "route_reflection": "disable", "advpn": sd["advpn"],
-        "dynamic_bgp": "disable", "auto-branch-id-assignment": "enable",
-        "hub-number": len(hub_list), "nodes": nodes,
-    }
+    base = {"as": sd["as_number"], "authmethod": sd["authmethod"], "topology": sd["topology"],
+            "loopback-ip": _mask(sd["loopback_ip"]), "overlay-network": _mask(sd["overlay_network"]),
+            "route_reflection": "disable", "advpn": sd["advpn"], "dynamic_bgp": "disable",
+            "auto-branch-id-assignment": "enable", "hub-number": len(hub_list)}
+    underlays = [{"id": u["id"], "interface": u["port"], "cost": 0, "private-link": "disable",
+                  "override-ip": "disable", "transport-group": 0} for u in sd["underlays"]]
+    nodes = []
+    for i, h in enumerate(hub_list, 1):
+        nodes.append({"id": i, "role": "hub", "hub-role": "primary" if i == 1 else "secondary" if i == 2 else "standalone",
+                      "advertisement": "connected", "scope": [h["fgt_name"]], "underlay": underlays})
+    nodes.append({"id": len(hub_list) + 1, "role": "spoke", "advertisement": "connected",
+                  "scope": [s["fgt_name"] for s in spokes(topo)], "underlay": underlays})
+    return {"base": base, "nodes": nodes}
 
 
 def _mask(cidr: str) -> str:
@@ -218,9 +216,10 @@ def _mask(cidr: str) -> str:
 
 def build_overlay(log, topo, rpc: JsonRpc, warn):
     ad, sd = adom(topo), topo["sdwan"]
-    data = overlay_payload(topo)
-    (GENERATED / "fmg-overlay-template.json").write_text(json.dumps(data, indent=2))
+    spec = overlay_payload(topo)
+    (GENERATED / "fmg-overlay-template.json").write_text(json.dumps(spec, indent=2))
     name = sd["template"]
+    root = f"/pm/config/adom/{ad}/template/_sdwan_overlay/{name}/sdwan/overlay"
     try:
         rpc.upsert(f"/pm/template/_sdwan_overlay/adom/{ad}",
                    {"name": name, "type": "template",
@@ -228,19 +227,38 @@ def build_overlay(log, topo, rpc: JsonRpc, warn):
                                          "description": "Gegenereerd door de SD-WAN & FortiAI Lab controller"}})
     except RpcError as e:
         warn(f"overlay template aanmaken: {e}")
-    last = None
-    # 'topology' heet in 7.6.x-builds verschillend; probeer de gekozen waarde en dan de varianten
-    for topology in [sd["topology"]] + [t for t in ("multi-hub", "dual-hub") if t != sd["topology"]]:
-        data["topology"] = topology
-        try:
-            rpc.set(f"/pm/config/adom/{ad}/template/_sdwan_overlay/{name}/sdwan/overlay", data)
-            log(f"[FortiManager] overlay template {name} ingesteld (topology={topology}, {len(hubs(topo))} hubs)")
-            last = None
-            break
-        except RpcError as e:
-            last = e
-    if last:
-        warn(f"overlay template instellen: {last}")
+    try:
+        rpc.set(root, spec["base"])
+        log(f"[FortiManager] overlay {name}: basisinstellingen gezet (topology={sd['topology']})")
+    except RpcError as e:
+        warn(f"overlay template instellen: {e}")
+        return False
+    try:                                    # idempotent: bestaande nodes eerst weg
+        rpc.delete(f"{root}/nodes")
+    except RpcError:
+        pass
+    ok = True
+    for node in spec["nodes"]:
+        nid, underlay, scope = node["id"], node["underlay"], node["scope"]
+        body = {k: v for k, v in node.items() if k not in ("underlay", "scope")}
+        for form in ([{"name": s, "vdom": "root"} for s in scope], scope):       # twee varianten voor _scope
+            try:
+                rpc.add(f"{root}/nodes", {**body, "_scope": form})
+                break
+            except RpcError as e:
+                last = e
+        else:
+            warn(f"overlay node {nid} ({node['role']}): {last}")
+            ok = False
+            continue
+        for u in underlay:
+            try:
+                rpc.add(f"{root}/nodes/{nid}/underlay", u)
+            except RpcError as e:
+                warn(f"overlay node {nid} underlay {u['id']}: {e}")
+                ok = False
+        log(f"[FortiManager] overlay node {nid} ({node['role']}): {', '.join(scope)}")
+    if not ok:
         return False
     try:
         rpc.exec(f"/pm/config/adom/{ad}/_sdwan/overlay/orchestration", {"template": name})
