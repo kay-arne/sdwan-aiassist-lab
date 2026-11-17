@@ -172,10 +172,27 @@ function renderLic(s, topo) {
   const tok = (id, label, val) => `<div class="field"><label>${label} FortiFlex-token</label><input data-tok="${id}" value="${esc(val || "")}"></div>`;
   let h = "";
   if (mode === "fortiflex") h = tok("fmg", "FortiManager", s.fortiflex.fmg) + tok("faz", "FortiAnalyzer", s.fortiflex.faz) + topo.sites.map((x) => tok("fgt:" + x.id, x.device, s.fortiflex.fgt[x.id])).join("");
+  if (mode === "fortiflex_api") {
+    const f = s.fortiflex_api || {};
+    h = `<div class="field"><label>API-gebruiker (FortiCloud IAM)</label><input data-ff="username" value="${esc(f.username || "")}"></div>
+      <div class="field"><label>API-wachtwoord</label><input type="password" data-ff="password" placeholder="${f.password_set ? "ongewijzigd" : ""}"></div>
+      <div class="field"><label>Programma-serienummer (leeg = eerste programma)</label><input data-ff="program_serial" value="${esc(f.program_serial || "")}" placeholder="ELAVMS..."></div>
+      <div class="field"><label>Account-ID (optioneel)</label><input data-ff="account_id" value="${esc(f.account_id || "")}"></div>`;
+  }
+  $("#ff-actions").hidden = mode !== "fortiflex_api";
   if (mode === "file") h = topo.sites.map((x) => `<div class="field"><label>${x.device} .lic</label><input type="file" data-lic="${x.id}" accept=".lic"></div>`).join("");
   $("#lic-fields").innerHTML = h;
   $$("[data-lic]").forEach((i) => (i.onchange = () => i.files[0] && uploadLicense(i.dataset.lic, i.files[0])));
 }
+async function ffCall(url, method = "POST") {
+  const out = $("#ff-out"); out.hidden = false; out.textContent = "bezig...";
+  try { const r = await (method === "GET" ? api(url) : post(url, {})); out.textContent = JSON.stringify(r, null, 2); }
+  catch (e) { out.textContent = "Fout: " + e.message; }
+}
+$("#ff-test").onclick = () => ffCall("/api/fortiflex/test");
+$("#ff-configs").onclick = () => ffCall("/api/fortiflex/configs");
+$("#ff-status").onclick = () => ffCall("/api/fortiflex/status", "GET");
+$("#ff-stop").onclick = () => confirm("Alle FortiFlex-entitlements van dit lab stoppen?") && ffCall("/api/fortiflex/stop-all");
 $$("input[name=lic]").forEach((r) => (r.onchange = async () => renderLic(await api("/api/settings"), CAT)));
 $$("[data-save]").forEach((b) => (b.onclick = async () => {
   const k = b.dataset.save; let body = {};
@@ -183,6 +200,10 @@ $$("[data-save]").forEach((b) => (b.onclick = async () => {
   if (k === "admin") body = { admin_password: $("#i-adminpw").value };
   if (k === "license") {
     body = { license_mode: ($("input[name=lic]:checked") || {}).value || "none" };
+    if (body.license_mode === "fortiflex_api") {
+      body.fortiflex_api = {};
+      $$("[data-ff]").forEach((i) => (body.fortiflex_api[i.dataset.ff] = i.value));
+    }
     const fgt = {};
     $$("[data-tok]").forEach((i) => { const id = i.dataset.tok; if (id === "fmg") body.fmg_fortiflex_token = i.value; else if (id === "faz") body.faz_fortiflex_token = i.value; else fgt[id.slice(4)] = i.value; });
     if (Object.keys(fgt).length) body.fgt_fortiflex_tokens = fgt;

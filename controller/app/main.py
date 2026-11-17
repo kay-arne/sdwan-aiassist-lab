@@ -91,6 +91,10 @@ def public_state() -> dict:
         "admin_password_set": bool(s.get("admin_password")),
         "admin_password": s.get("admin_password", ""),
         "license_mode": s.get("license_mode", "none"),
+        "fortiflex_api": {"username": (s.get("fortiflex_api") or {}).get("username", ""),
+                          "password_set": bool((s.get("fortiflex_api") or {}).get("password")),
+                          "program_serial": (s.get("fortiflex_api") or {}).get("program_serial", ""),
+                          "account_id": (s.get("fortiflex_api") or {}).get("account_id", "")},
         "fortiflex": {"fmg": s.get("fmg_fortiflex_token", ""), "faz": s.get("faz_fortiflex_token", ""),
                       "fgt": s.get("fgt_fortiflex_tokens") or {}},
         "images": {k: s.get(f"{k}_upload") for k in ("fgt", "fmg", "faz")},
@@ -109,6 +113,7 @@ class Settings(BaseModel):
     wan: Optional[dict[str, str]] = None            # fmg_ip, faz_ip (met prefix), gateway, dns1, dns2, isp_ip
     admin_password: Optional[str] = None
     license_mode: Optional[str] = None
+    fortiflex_api: Optional[dict[str, str]] = None   # username, password, program_serial, account_id
     fmg_fortiflex_token: Optional[str] = None
     faz_fortiflex_token: Optional[str] = None
     fgt_fortiflex_tokens: Optional[dict[str, str]] = None
@@ -148,9 +153,16 @@ def save_settings(s: Settings):
             raise HTTPException(400, "Wachtwoord: minimaal 8 tekens, geen spaties, quotes of backslash.")
         changes["admin_password"] = pw
     if s.license_mode is not None:
-        if s.license_mode not in ("none", "file", "fortiflex"):
+        if s.license_mode not in ("none", "file", "fortiflex", "fortiflex_api"):
             raise HTTPException(400, "onbekende licentiemodus")
         changes["license_mode"] = s.license_mode
+    if s.fortiflex_api is not None:
+        cur = dict(get_state().get("fortiflex_api") or {})
+        for k in ("username", "password", "program_serial", "account_id"):
+            v = (s.fortiflex_api.get(k) or "").strip()
+            if v or k in ("program_serial", "account_id"):      # leeg wachtwoord = ongewijzigd laten
+                cur[k] = v
+        changes["fortiflex_api"] = cur
     for key in ("fmg_fortiflex_token", "faz_fortiflex_token"):
         v = getattr(s, key)
         if v is not None:
@@ -178,6 +190,48 @@ async def upload_image(request: Request, filename: str, kind: str):
     await _save(request, target)
     update_state(**{f"{kind}_image": target, f"{kind}_upload": Path(filename).name})
     return public_state()
+
+
+@app.post("/api/fortiflex/test")
+def fortiflex_test():
+    from . import fortiflex
+    try:
+        return fortiflex.test(load_topology())
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e)) from None
+
+
+@app.post("/api/fortiflex/configs")
+def fortiflex_configs():
+    """Maak de lab-configuraties (FortiGate-VM, FortiManager-VM, FortiAnalyzer-VM) aan als ze nog niet bestaan."""
+    from . import fortiflex
+    topo, lines = load_topology(), []
+    try:
+        for kind in fortiflex.PRODUCTS:
+            lines.append(f"{fortiflex.config_name(topo, kind)}: id {fortiflex.ensure_config(lines.append, topo, kind)}")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e)) from None
+    return {"log": lines}
+
+
+@app.get("/api/fortiflex/status")
+def fortiflex_status():
+    from . import fortiflex
+    try:
+        return fortiflex.status(load_topology())
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e)) from None
+
+
+@app.post("/api/fortiflex/stop-all")
+def fortiflex_stop_all():
+    from . import fortiflex
+    lines: list[str] = []
+    try:
+        fortiflex.release_all(lines.append)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e)) from None
+    return {"log": lines}
 
 
 @app.post("/api/upload/license")

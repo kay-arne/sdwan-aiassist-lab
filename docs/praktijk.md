@@ -51,3 +51,18 @@ wat je tegenkwam.
 - De SD-WAN-doorvoer in het lab wordt beperkt door de Proxmox-host (virtuele NIC's, geen offloading) en FortiGate-VM-licentie; het lab
   is bedoeld om gedrag te laten zien, niet voor throughput-metingen.
 - De ISP-router NAT't ook de overlay-onderliggende adressen naar internet; de overlay zelf loopt echter ongeNAT't tussen de sites.
+
+## FortiFlex via API
+
+Kies in Setup > Licenties **FortiFlex via API** en vul de API-gebruiker (FortiCloud IAM, met FortiFlex-rechten) en het wachtwoord in.
+Het programma-serienummer is optioneel (leeg = eerste programma van de gebruiker).
+
+- **Uitrollen**: de controller zoekt per type de configuratie `<prefix>-fgt/-fmg/-faz` of maakt hem aan (parameters: `fortiflex:` in
+  `lab/topology.yaml`), maakt per apparaat één entitlement en zet de token in de FortiGate-config drive of via `execute vm-license`.
+- **Opnieuw uitrollen**: een bestaande entitlement wordt gereactiveerd en krijgt een nieuwe token; je hoeft niets handmatig te maken.
+- **Verwijderen**: bij het verwijderen van een VM (of het hele lab) stopt de controller de entitlement, zodat er geen punten meer worden
+  verbruikt. 'Alle entitlements stoppen' in Setup doet dat ook handmatig.
+- **FortiAI**: de FortiManager-configuratie bevat de add-on `FMGAISN` met `fortiAITokens` en FortiAnalyzer `FAZAISN`. Controleer de
+  puntenkosten met de FortiFlex-calculator voordat je uitrolt; pas de waarden aan in `topology.yaml` voor de eerste uitrol.
+- De API-paden en parameter-ID's komen uit Fortinets Ansible/Terraform-collecties voor FortiFlex v2 en zijn niet tegen jouw account
+  getest; fouten staan in de joblog. Het API-wachtwoord staat (zoals het admin-wachtwoord) in `data/state.json` van de controller.

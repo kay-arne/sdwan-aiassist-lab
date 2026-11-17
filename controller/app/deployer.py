@@ -148,7 +148,7 @@ def deploy_fortigate(log, topo, site):
     h.run(["mkdir", "-p", h.workdir])
     remote = f"{h.workdir}/{img.name}"
     _put_with_progress(log, img, remote)
-    iso_local, iso_name = fortigate.build_config_iso(topo, state, site)
+    iso_local, iso_name = fortigate.build_config_iso(topo, state, site, log)
     h.put(iso_local, f"{h.workdir}/{iso_name}")
     h.run(["install", "-m", "0644", f"{h.workdir}/{iso_name}", f"/var/lib/vz/template/iso/{iso_name}"])
     seg = segment_map(topo)
@@ -517,6 +517,13 @@ def component_ids(topo) -> list[str]:
             + [f"node:{n['name']}" for n in inventory(topo)] + ["config"])
 
 
+def _release_license(log, key):
+    """Bij FortiFlex-API: entitlement stoppen zodra de VM weg is (punten besparen, hergebruik bij uitrol)."""
+    from . import fortiflex
+    if fortiflex.is_api_mode():
+        fortiflex.release(log, key)
+
+
 def _destroy_vmid(log, h, vmid, label):
     kind = h.exists(vmid)
     if not kind:
@@ -534,10 +541,12 @@ def destroy_selected(log, items):
     for s in topo["sites"]:
         if f"fgt:{s['id']}" in items:
             _destroy_vmid(log, h, s["vmid"], s["hostname"])
+            _release_license(log, f"fgt:{s['id']}")
     for kind, cfg in (("fmg", topo["fortimanager"]), ("faz", topo["fortianalyzer"])):
         if kind in items:
             _destroy_vmid(log, h, cfg["vmid"], vm_name(topo, cfg["name"]))
             update_state(**{f"{kind}_day0": False})
+            _release_license(log, kind)
     if "template" in items:
         _destroy_vmid(log, h, template_vmid(topo), vm_name(topo, "template"))
     if "network" in items:
@@ -584,6 +593,9 @@ def destroy_all(log, remove_template=False, remove_net=False):
             log(f"{tool} destroy {vmid}")
             h.run([tool, "stop", str(vmid)], check=False)
             h.run([tool, "destroy", str(vmid), "--purge", "1"], check=False)
+    from . import fortiflex
+    if fortiflex.is_api_mode():
+        fortiflex.release_all(log)
     if remove_net:
         remove_bridges(log, topo)
     update_state(deployed=False, fmg_day0=False, faz_day0=False, fmg_provisioned=False)

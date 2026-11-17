@@ -87,11 +87,17 @@
         <b>FortiFlex-token</b> (<code>execute vm-license</code>) of evaluatie; een <code>.lic</code> importeer je zelf via de GUI.
         De <b>FortiAI-licentie</b> hoort bij het FortiCare-account van de FortiManager/FortiAnalyzer (zie het tabblad FortiAI).</p>
       <div class="choices">
-        <label class="choice"><input type="radio" name="lic" value="fortiflex"><span><b>FortiFlex-tokens</b><small>Per VM een token.</small></span></label>
+        <label class="choice"><input type="radio" name="lic" value="fortiflex_api"><span><b>FortiFlex via API</b><small>De controller maakt, reactiveert en stopt entitlements zelf.</small></span></label>
+        <label class="choice"><input type="radio" name="lic" value="fortiflex"><span><b>FortiFlex-tokens</b><small>Per VM een token (handmatig).</small></span></label>
         <label class="choice"><input type="radio" name="lic" value="file"><span><b>Licentiebestanden (.lic)</b><small>FortiGates via de config drive; FMG/FAZ zelf in de GUI.</small></span></label>
         <label class="choice"><input type="radio" name="lic" value="none"><span><b>Geen / later</b><small>Evaluatiemodus.</small></span></label>
       </div>
       <div id="lic-fields" class="grid2"></div>
+      <div id="ff-actions" class="actions" hidden>
+        <button id="ff-test">Verbinding testen</button><button id="ff-configs">Configuraties aanmaken</button>
+        <button id="ff-status">Status</button><button id="ff-stop">Alle entitlements stoppen</button>
+      </div>
+      <pre id="ff-out" class="logbox" hidden></pre>
       <div class="actions"><button class="primary" data-save="license">Opslaan</button><span class="result" data-result="license"></span></div>
     </div>
   </section>

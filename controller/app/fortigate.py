@@ -122,7 +122,7 @@ def mime_multipart(parts: list[tuple[str, str]]) -> str:
     return msg.as_string()
 
 
-def build_config_iso(topo: dict, state: dict, site: dict) -> tuple[Path, str]:
+def build_config_iso(topo: dict, state: dict, site: dict, log=None) -> tuple[Path, str]:
     """Config drive (cloud-init): MIME-multipart user_data met de configuratie en de licentie."""
     out = Path(tempfile.mkdtemp(prefix="fgtiso-"))
     work = out / "config-drive"
@@ -130,6 +130,10 @@ def build_config_iso(topo: dict, state: dict, site: dict) -> tuple[Path, str]:
     (work / "openstack" / "content").mkdir(parents=True)
     parts = [("config.txt", bootstrap_config(topo, state, site))]
     lic = lic_of(site["id"])
+    if lic["mode"] == "fortiflex_api":
+        from . import fortiflex
+        lic = {"mode": "fortiflex", "file": None,
+               "token": fortiflex.acquire(log or (lambda m: None), topo, f"fgt:{site['id']}")}
     if lic["mode"] == "file" and lic["file"] and (UPLOADS / lic["file"]).exists():
         parts.append(("license.txt", (UPLOADS / lic["file"]).read_text().strip() + "\n"))
     elif lic["mode"] == "fortiflex" and lic["token"]:

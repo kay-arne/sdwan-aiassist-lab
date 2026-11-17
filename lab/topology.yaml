@@ -88,6 +88,16 @@ sdwan:
     - {name: STREAMING,     isdb: [Netflix-Netflix, Google-YouTube, Spotify-Spotify], mode: cost, note: "goedkoopste link (underlay B), nooit over de overlay"}
     - {name: DC-APPS,       dst: [10.21.0.0/24, 10.22.0.0/24], mode: sla, note: "interne apps in AMS/FRA via de overlay"}
 
+# --- FortiFlex (alleen bij licentiemodus 'FortiFlex via API') --------------------------------
+# De controller maakt per type één configuratie <prefix>-fgt / -fmg / -faz aan (als hij nog niet bestaat) en
+# daaruit per apparaat één entitlement. Pas de waarden hier aan voordat je voor het eerst uitrolt; wijzigingen
+# gelden niet voor bestaande configuraties (pas die in het FortiFlex-portaal aan). Controleer de kosten met de
+# FortiFlex-calculator: fortiAITokens bepaalt het FortiAI-budget van FortiManager.
+fortiflex:
+  fgt: {cpu: 2, service: UTP}                       # service: FC | UTP | ENT | ATP
+  fmg: {device: 20, adom: 5, service: FMGFC247, addons: [FMGAISN], fortiAITokens: 100000}
+  faz: {storage: 10, adom: 5, service: FAZFC247, addons: [FAZAISN]}
+
 # --- servers en helpers in LXC --------------------------------------------------------
 nodes:
   - {name: isp,        role: isp,      note: "ISP-router: gateway/DNS/NAT voor WAN-A en WAN-B naar de uplink (internet)"}

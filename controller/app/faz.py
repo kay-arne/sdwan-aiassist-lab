@@ -40,7 +40,12 @@ def day0(log, topo):
 def ensure_license(log, topo):
     st = get_state()
     token = st.get("faz_fortiflex_token")
-    if st.get("license_mode") != "fortiflex" or not token:
+    if st.get("license_mode") == "fortiflex_api":
+        from . import fortiflex
+        token = fortiflex.acquire(log, topo, "faz")
+    elif st.get("license_mode") != "fortiflex":
+        token = None
+    if not token:
         log("[FortiAnalyzer] geen FortiFlex-token: evaluatiemodus (importeer een .lic zelf via de GUI)")
         return
     cli = console.wait_ssh(log, mgmt_ip(topo), st["admin_password"], "FortiAnalyzer")
