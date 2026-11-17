@@ -196,7 +196,8 @@ def overlay_payload(topo) -> dict:
     base = {"as": sd["as_number"], "authmethod": sd["authmethod"], "topology": sd["topology"],
             "loopback-ip": _mask(sd["loopback_ip"]), "overlay-network": _mask(sd["overlay_network"]),
             "route_reflection": "disable", "advpn": sd["advpn"], "dynamic_bgp": "disable",
-            "auto-branch-id-assignment": "enable", "hub-number": len(hub_list)}
+            "auto-branch-id-assignment": "enable", "hub-number": len(hub_list),
+            "sdwan_members": "enable", "sdwan_health_check": "enable"}   # laat de orchestratie ook SD-WAN-templates maken
     underlays = [{"id": u["id"], "interface": u["port"], "cost": 0, "private-link": "disable",
                   "override-ip": "disable", "transport-group": 0} for u in sd["underlays"]]
     nodes = []
