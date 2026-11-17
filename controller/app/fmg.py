@@ -215,6 +215,16 @@ def _mask(cidr: str) -> str:
     return f"{n.network_address}/{n.netmask}"
 
 
+def _put(rpc: JsonRpc, table_url: str, entry_id, data: dict):
+    """Tabelrij toevoegen; bestaat hij al (-2), dan die ene rij bijwerken."""
+    try:
+        return rpc.add(table_url, data)
+    except RpcError as e:
+        if e.code == -2:
+            return rpc.set(f"{table_url}/{entry_id}", data)
+        raise
+
+
 def build_overlay(log, topo, rpc: JsonRpc, warn):
     ad, sd = adom(topo), topo["sdwan"]
     spec = overlay_payload(topo)
@@ -234,27 +244,25 @@ def build_overlay(log, topo, rpc: JsonRpc, warn):
     except RpcError as e:
         warn(f"overlay template instellen: {e}")
         return False
-    try:                                    # idempotent: bestaande nodes eerst weg
-        rpc.delete(f"{root}/nodes")
-    except RpcError:
-        pass
     ok = True
     for node in spec["nodes"]:
         nid, underlay, scope = node["id"], node["underlay"], node["scope"]
         body = {k: v for k, v in node.items() if k not in ("underlay", "scope")}
+        last = None
         for form in ([{"name": s, "vdom": "root"} for s in scope], scope):       # twee varianten voor _scope
             try:
-                rpc.add(f"{root}/nodes", {**body, "_scope": form})
+                _put(rpc, f"{root}/nodes", nid, {**body, "_scope": form})
+                last = None
                 break
             except RpcError as e:
                 last = e
-        else:
+        if last:
             warn(f"overlay node {nid} ({node['role']}): {last}")
             ok = False
             continue
         for u in underlay:
             try:
-                rpc.add(f"{root}/nodes/{nid}/underlay", u)
+                _put(rpc, f"{root}/nodes/{nid}/underlay", u["id"], u)
             except RpcError as e:
                 warn(f"overlay node {nid} underlay {u['id']}: {e}")
                 ok = False
