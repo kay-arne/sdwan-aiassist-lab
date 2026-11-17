@@ -153,9 +153,9 @@ def add_devices(log, topo, rpc: JsonRpc, warn):
     if missing:
         raise RuntimeError(
             f"Devices niet toegevoegd aan FortiManager: {', '.join(missing)}. zie de waarschuwingen hierboven. "
-            f"Bij 'ostypeunsupport': FortiManager en FortiGate hebben mogelijk niet-compatibele versies ({versions}); "
-            "controleer ook of de ADOM (root) dezelfde FortiOS-versie heeft als de FortiGate, en of de FortiGate "
-            "FortiManager bereikt op tcp/541 (FGFM) via het management-netwerk.")
+            f"Versies: {versions}. Controleer bij 'VM device is not allowed' de instelling fgfm-allow-vm op "
+            "FortiManager en de licentie van de FortiGate-VM; bij 'ostypeunsupport' de FortiOS-ondersteuning van de "
+            "ADOM; en of de FortiGate FortiManager bereikt op tcp/541 (FGFM) via het management-netwerk.")
     # groepen voor de overlay template
     for grp, members in ((SPOKE_GROUP, spokes(topo)), (HUB_GROUP, hubs(topo))):
         try:
@@ -395,6 +395,7 @@ def provision(log, topo, devices=None) -> list[str]:
 
     if console.ensure_adom_mode(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager"):
         time.sleep(30)
+    console.allow_vm_devices(log, mgmt_ip(topo), get_state()["admin_password"], "FortiManager")
     rpc = wait_api(log, topo)
     ensure_adom(log, rpc, adom(topo), "FortiManager")
     add_devices(log, topo, rpc, warn)

@@ -174,6 +174,18 @@ def ensure_adom_mode(log, ip: str, password: str, label: str):
         cli.close()
 
 
+def allow_vm_devices(log, ip: str, password: str, label: str):
+    """FortiManager weigert FortiGate-VM's met 'VM device is not allowed' tenzij fgfm-allow-vm aan staat."""
+    cli = Cli(ip, password)
+    try:
+        cli.run("config system global")
+        cli.run("set fgfm-allow-vm enable")
+        out = cli.run("end", timeout=30, answer="y")
+        log(f"[{label}] fgfm-allow-vm enable{(' (' + out.strip()[-80:] + ')') if 'rror' in out else ''}")
+    finally:
+        cli.close()
+
+
 def wait_ssh(log, ip: str, password: str, label: str, timeout=900) -> Cli:
     deadline, last = time.time() + timeout, None
     while time.time() < deadline:
