@@ -43,6 +43,10 @@ def main():
         if a.intensity: body["intensity"] = a.intensity
         if a.threads: body["threads_per_ip"] = a.threads
         if a.groups: body["groups"] = json.loads(a.groups)
+        try:
+            call("/api/stop", {})                              # een lopende test eerst stoppen (apply geeft anders 409)
+        except SystemExit:
+            pass
         nets = json.load(open("/etc/sdwlab/networks.json"))
         call("/api/network/apply", {"networks": nets})          # bronnetwerken (her)activeren; zonder lijst wist Traffic-Gen ze
         print(json.dumps(call("/api/start", body)))
