@@ -95,10 +95,19 @@ def authorize_devices(log, topo, warn):
         known = {d["name"] for d in (rpc.get(f"/dvmdb/adom/{ad}/device") or [])}
     except RpcError:
         known = set()
-    try:                                    # nog niet geautoriseerde FortiGates (komen binnen via hun logging)
-        unreg = {d["name"]: d for d in (rpc.get("/dvmdb/device") or []) if d.get("name")}
-    except RpcError:
-        unreg = {}
+    def unregistered() -> dict:
+        try:                                # nog niet geautoriseerde FortiGates (komen binnen via hun logging)
+            return {d["name"]: d for d in (rpc.get("/dvmdb/device") or []) if d.get("name")}
+        except RpcError:
+            return {}
+
+    unreg = unregistered()
+    wanted = [s["fgt_name"] for s in topo["sites"] if s["fgt_name"] not in known]
+    deadline = time.time() + 600            # bij een schone uitrol sturen de FortiGates hun eerste logs pas na FortiAnalyzer-start
+    while [n for n in wanted if n not in unreg] and time.time() < deadline:
+        log(f"[FortiAnalyzer] wacht op logs van: {', '.join(n for n in wanted if n not in unreg)}")
+        time.sleep(30)
+        unreg = unregistered()
     for site in topo["sites"]:
         name = site["fgt_name"]
         if name in known:
