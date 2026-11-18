@@ -53,3 +53,8 @@ Na elke uitrol start de controller automatisch het preset `background` op alle b
 streaming en social, en een klein constant deel ongewenst verkeer (webfilter-categorieën, EICAR-malware, botnet/IOC-DNS). Zo bouwt FortiAnalyzer
 vanaf het begin een gevarieerde logset op. Scenario's vervangen het verkeer tijdelijk; hun opruimstap en de knop "Verkeer stoppen" in de
 Cockpit werken zo: een scenario eindigt met het terugzetten van het achtergrondverkeer, de knop stopt alles.
+
+## Officiële demoflows
+
+De Labguides bevatten twee hoofdstukken die de officiële Product Management-demo-guides volgen (Q3 2024): **10. Demo FortiAnalyzer** (incident ophalen, reputatiecheck, getroffen endpoints, Threat Hunting en Log View, quarantaine, IP blokkeren, rapport, event handler, grafieken)
+en **11. Demo FortiManager** (IoT-voorwaarden, VPN Assistant, tunnelstatus en diagnose, Script Assistant met meta variables). Stappen die een FortiClient EMS-connector, FortiManager-koppeling, IoT-detectie of login-logs vereisen, zijn in het lab niet uitvoerbaar en staan in de guide als zodanig vermeld.

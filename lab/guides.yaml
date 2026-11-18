@@ -33,6 +33,11 @@ guides:
           FortiAI werkt alleen met een lokale administrator, een FortiAI-licentie (maandelijks tokenbudget, gedeeld) en uitgaand internet vanaf port1.
           Houd prompts kort en vraag met tijdvenster; start na ongeveer 10 vragen een nieuwe thread.
       - tip: >
+          **Uit de officiële demo-guides:** pas de demo aan op het publiek (SOC-analist: incidentprioriteit en minder alarmoverload; NOC-engineer:
+          scripts en VPN; manager of CISO: efficiëntie en compliance). Per platform mogen maximaal 3 gebruikers FortiAI gebruiken en het
+          maandelijkse tokenbudget is vast. Antwoorden verschillen in woordkeuze maar niet in uitkomst. Het gaat om assisteren, niet vervangen:
+          de mens blijft de beslissingen nemen.
+      - tip: >
           **Eerst naar de juiste pagina.** FortiAI in FortiAnalyzer werkt in de context van de huidige pagina: open voor logvragen en grafieken eerst
           **Log View > Traffic** (of Event Monitor), anders vraagt FortiAI om je door te sturen. Groepeer grafieken op iets dat betekenis heeft
           (applicatie, bron-IP, interface); per FortiGate toont FortiAI serienummers in plaats van namen.
@@ -197,3 +202,70 @@ guides:
       - ai: all
       - buttons:
           - {label: "Opruimen", action: {do: traffic_stop}}
+
+  - id: faz-demo
+    title: "10. Demo FortiAnalyzer"
+    scenario: faz-demo
+    summary: "Officiële demoflow: incident, reputatie, event handler, rapport, grafiek"
+    steps:
+      - text: >
+          **Het verhaal.** MIS meldt een trage server aan de SOC. Er is een incident aangemaakt in FortiAnalyzer en een analist onderzoekt het met de
+          AI-assistent. Je laat zien dat FortiAI informatie uit meerdere plekken verzamelt, context geeft en de analist laat doorvragen.
+      - tip: >
+          **Wat dit lab wel en niet heeft.** Zonder FortiClient EMS en SOAR-connectors werken de stappen "running processes" en "Quarantine" niet, en
+          "Block IP via FortiManager" vraagt een FortiManager-koppeling in FortiAnalyzer. Voor stap 1 heb je een incident nodig: maak er een in
+          **Incidents & Events** uit een security-event. Laat bij de stappen die in het lab niet bestaan zien dat FortiAI dat netjes meldt, of sla ze over.
+      - text: "**Start het scenario**: aanvalsverkeer vanuit Rotterdam. Wacht minstens vier minuten, liefst langer."
+      - buttons:
+          - {label: "Aanvalsverkeer in Rotterdam", action: {do: traffic, site: br2, preset: security}}
+      - text: "**Deel 1: incident onderzoeken (stap 1 t/m 7)**"
+      - ai: [0, 1, 2, 3, 4, 5, 6]
+      - text: "**Wat je benadrukt:** informatie uit meerdere plekken in één gesprek, context (dreigingsinfo en getroffen assets) in seconden, en doorvragen om de zaak te verfijnen. Richtwaarde uit de officiële guide: AI gemiddeld 3 minuten, handmatig gemiddeld 48 minuten."
+      - text: "**Deel 2: reageren (stap 8 t/m 12)**"
+      - ai: [7, 8, 9, 10, 11]
+      - text: "**Wat je benadrukt:** gekoppeld aan playbooks en connectors voor automatische respons, sneller reageren, en een incidentrapport met het volledige onderzoek voor nabespreking en compliance."
+      - text: "**Deel 3: aangepaste detectieregel**"
+      - ai: [12]
+      - text: "**Wat je benadrukt:** een detectieregel maken kost een paar zinnen in plaats van handmatig regels bouwen, en de regels zijn afgestemd op de omgeving."
+      - text: "**Deel 4: rapport en visualisatie**"
+      - ai: [13, 14, 15]
+      - text: "**Wat je benadrukt:** de gebruiker kiest bronnen, parameters en diagramtype in een begeleid proces; minder handwerk voor rapportages."
+      - buttons:
+          - {label: "Opruimen", action: {do: traffic_stop}}
+
+  - id: fmg-demo
+    title: "11. Demo FortiManager"
+    scenario: fmg-demo
+    summary: "Officiële demoflow: IoT, VPN Assistant, Script Assistant"
+    steps:
+      - text: >
+          **Het verhaal.** Het bedrijf breidt uit en het NOC moet snel VPN's inrichten, tunnels bewaken en veel FortiGates provisionen. Open FortiAI in
+          FortiManager en **kies steeds eerst de juiste assistent** bovenin het venster (IoT, VPN of Script).
+      - text: "**Deel 1: IoT Device Analysis.** De officiële demo gaat uit van FortiGates met device detection en licenties. In dit lab zijn er geen IoT-apparaten, dus beperk je tot de voorwaarden."
+      - ai: [0, 1]
+      - tip: >
+          Het is juist een goede demo als de voorwaardencheck laat zien dat niet alle FortiGates voldoen: dat toont dat de uitkomst klopt en niet
+          iets is wat FortiAI verzint. Genoemd in de officiële guide: handmatig 0,5 tot 8 uur, met AI gemiddeld 5 minuten (met echte IoT-apparaten).
+      - text: "**Deel 2: VPN Assistant, configureren.** Kies **Select Devices** (of upload een topologie-afbeelding van maximaal 5 MB), controleer de samenvatting en bevestig."
+      - ai: [2, 3]
+      - tip: >
+          Sla het script op met **Save Script** (Device Manager > Scripts). FortiAI zet de PSK als placeholder
+          (`set psksecret <PLACEHOLDER_FOR_YOUR_PRESHARED_KEY>`): pas die zelf aan, in beide scripts dezelfde. Voer scripts uit op de device database en
+          installeer daarna. In het lab bestaat de VPN al; gebruik dit deel om te laten zien wat FortiAI zou genereren, voer het niet uit.
+      - text: "**Deel 3: tunnels controleren en diagnosticeren.** Laat eerst een tunnel wegvallen:"
+      - buttons:
+          - {label: "WAN-A Utrecht down", action: {do: link, site: br1, transport: A, state: down}}
+          - {label: "ISP-links", check: links}
+          - {label: "Herstellen", action: {do: clear}}
+      - ai: [4, 5, 6]
+      - tip: >
+          De status in VPN Monitor (Device Manager > Monitors > VPN Monitor, **Show Table**) toont alleen verkeer als de tunnel in gebruik is; zet hem
+          eventueel handmatig omhoog met rechtermuisknop > **Bring Tunnel UP**.
+      - text: "**Deel 4: Script Assistant met meta variables.** Genereer een CLI-script voor hostname en IP-adressen voor veel FortiGates tegelijk."
+      - ai: [7, 8]
+      - tip: >
+          Sla op met **Save CLI Template**, wijs het toe aan een apparaatgroep en installeer. In dit lab laat je het resultaat alleen zien; een
+          nieuw CLI-template toewijzen aan de lab-FortiGates zou hun configuratie veranderen.
+      - text: >
+          **Wat je benadrukt:** in minuten een volledige template voor massale provisioning, VPN-configuratie met beeldherkenning van een topologie,
+          en tunnels bewaken, diagnosticeren en herstellen. AI helpt het NOC, het vervangt niemand.
