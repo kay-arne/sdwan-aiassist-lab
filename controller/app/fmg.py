@@ -318,10 +318,14 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
     sla = hc["sla"]
     # Expliciete members ('Participants: Specify'): zonder deze lijst start FortiOS 7.6 de probes niet
     health = [{"name": hc["name"], "server": [hc["server"]], "protocol": hc["protocol"],
-               "members": [str(m["seq-num"]) for m in members],
                "interval": 1000, "failtime": 3, "recoverytime": 5,
                "sla": [{"id": 1, "latency-threshold": sla["latency_ms"], "jitter-threshold": sla["jitter_ms"],
-                        "packetloss-threshold": sla["loss_pct"]}]}]
+                        "packetloss-threshold": sla["loss_pct"]}],
+               "members": [str(m["seq-num"]) for m in members if not m.get("underlay")]},
+              # de underlays (internet) kunnen het datacenter niet bereiken: eigen health-check, anders staan ze 'dead'
+              # en wordt de default-route naar het internet inactief
+              {"name": "INET", "server": ["8.8.8.8"], "protocol": "ping", "interval": 1000, "failtime": 3, "recoverytime": 5,
+               "members": [str(m["seq-num"]) for m in members if m.get("underlay")]}]
     addresses, services = [], []
     by_underlay = {m["underlay"]: m["seq-num"] for m in members if m.get("underlay")}
     last_u = max(by_underlay) if by_underlay else 1
