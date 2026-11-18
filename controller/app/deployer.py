@@ -521,6 +521,8 @@ def provision_all(log, topo):
         except Exception as e:  # noqa: BLE001
             log(f"⚠ tijdzone {label}: {e}")
     tz.containers(log, topo)
+    apply_traffic_config(log)        # Traffic-Gen-profielen en bronnetwerken (her)installeren
+    _start_background(log, topo)
     for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
         try:
             console.set_idle_timeout(log, ip, get_state().get("admin_password", ""), label)
