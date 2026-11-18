@@ -296,7 +296,8 @@ def _members(topo, role: str) -> list[dict]:
     op een branch HUB<h>-VPN<n> (n = underlay-id); de underlay-poorten staan in topology.yaml."""
     sd, out = topo["sdwan"], []
     for u in sd["underlays"]:
-        out.append({"interface": u["port"], "zone": sd["zones"]["underlay"], "underlay": u["id"]})
+        gw = segment_map(topo)["wan-" + "AB"[u["id"] - 1]]["gateway"]      # zonder gateway blijft de default route inactief
+        out.append({"interface": u["port"], "zone": sd["zones"]["underlay"], "underlay": u["id"], "gateway": gw})
     if role == "hub":
         for u in sd["underlays"]:
             out.append({"interface": f"VPN{u['id']}", "zone": sd["zones"]["overlay"]})
@@ -496,6 +497,8 @@ def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
                 _put_row(rpc, f"{base}/zone", z, {"name": z})
             for m in members:
                 row = {"seq-num": m["seq-num"], "interface": [m["interface"]], "zone": [m["zone"]], "cost": 0}
+                if m.get("gateway"):
+                    row["gateway"] = m["gateway"]
                 _put_row(rpc, f"{base}/members", m["seq-num"], row)
             log(f"[FortiManager] SD-WAN-template {tname}: zones en {len(members)} members")
         except RpcError as e:
