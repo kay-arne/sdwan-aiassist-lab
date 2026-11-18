@@ -390,6 +390,27 @@ def traffic_config(topo, node) -> dict:
                        "updates": 3, "download": 2, "sdwan": 5, "webfilter": 0, "malware": 0, "ioc": 0}}
 
 
+def lab_profiles(topo) -> str:
+    """Extra Traffic-Gen-apps voor dit lab: verkeer naar de datacenter-servers (loopt over de hubs) en tussen de branches
+    (laat ADVPN-shortcuts ontstaan). Wordt achter de standaardprofielen van Traffic-Gen gezet."""
+    servers = [n for n in inventory(topo) if n["role"] == "dcserver"]
+    branches = [n for n in nodes_by_role(topo, "trafficgen")]
+    web = ", ".join(f'"http://{s["ip"]}/"' for s in servers)
+    ips = ", ".join(f'"{s["ip"]}"' for s in servers)
+    bips = ", ".join(f'"{b["ip"]}"' for b in branches)
+    return "\n".join([
+        "  # ---------------- SD-WAN & FortiAI Lab: datacenter en branch-naar-branch",
+        f"  dc-web:       {{group: dc, weight: 6, urls: [{web}]}}",
+        f"  dc-ping:      {{group: dc, weight: 2, ping: [{ips}]}}",
+        f"  branch-ping:  {{group: branch, weight: 1, ping: [{bips}]}}", ""])
+
+
+def install_lab_profiles(vmid, topo):
+    host().pct_exec(vmid, "cat > /tmp/lab-profiles.yaml <<'EOF'\n" + lab_profiles(topo) + "EOF\n"
+                    "(cat /opt/trafficgen/profiles.yaml; echo; cat /tmp/lab-profiles.yaml) > /etc/trafficgen/profiles.yaml",
+                    check=True)
+
+
 def deploy_trafficgen(log, topo, node):
     h, state = host(), get_state()
     vmid = node["vmid"]
@@ -429,6 +450,7 @@ def deploy_trafficgen(log, topo, node):
     h.pct_exec(vmid, "/usr/bin/python3 /opt/trafficgen/trafficgen.py passwd --file /root/.tg-pw; rm -f /root/.tg-pw; "
                      "chmod 644 /etc/systemd/system/trafficgen-web.service; systemctl daemon-reload; "
                      "systemctl enable --now trafficgen-web.service", check=True)
+    install_lab_profiles(vmid, topo)
     log(f"{node['hostname']}: Traffic-Gen (bronnen {node['ip']} + {topo['traffic_gen']['source_ips'] - 1}) "
         f"- GUI op https://<eth0-ip>:{topo['traffic_gen']['gui_port']}")
 
@@ -468,6 +490,7 @@ def apply_traffic_config(log):
             continue
         _write_files(n["vmid"], {"/etc/trafficgen/config.yaml": yaml.safe_dump(traffic_config(topo, n), sort_keys=False),
                                  "/etc/sdwlab/networks.json": json.dumps(traffic_config(topo, n)["networks"])})
+        install_lab_profiles(n["vmid"], topo)
         host().pct_exec(n["vmid"], "systemctl restart trafficgen-web")
         log(f"{n['hostname']}: bronnetwerken opnieuw gezet")
 

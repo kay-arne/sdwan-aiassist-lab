@@ -667,6 +667,10 @@ def policy_package(log, topo, rpc: JsonRpc, warn, zones: dict):
                            for s in topo["sites"]]})
         except RpcError as e:
             warn(f"interface-object {name}: {e}")
+    try:        # het standaard webfilter logt alleen geblokkeerde/gewaarschuwde categorieën; alle URL's loggen geeft een volledig categorie-overzicht
+        rpc.update(f"/pm/config/adom/{ad}/obj/webfilter/profile/default", {"log-all-url": "enable"})
+    except RpcError as e:
+        warn(f"webfilter log-all-url: {e}")
     common = {"schedule": ["always"], "service": ["ALL"], "logtraffic": "all", "action": "accept",
               "status": "enable", "srcaddr": ["all"], "dstaddr": ["all"]}
     utm = {"utm-status": "enable", "ssl-ssh-profile": "certificate-inspection", "av-profile": "default",
