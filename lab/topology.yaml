@@ -78,7 +78,7 @@ sdwan:
     underlay: UNDERLAY
   health_check:
     name: DC_SLA
-    server: 10.21.0.10       # in AMS; hubs routeren naar elkaar
+    server: [10.21.0.10, 10.22.0.10]   # server in AMS en FRA: elk hub-pad heeft een eigen doel, anders staat het andere hub-pad 'dead'
     protocol: ping
     sla: {latency_ms: 80, jitter_ms: 20, loss_pct: 2}
   # Business-intent regels (SD-WAN rules), van boven naar beneden. 'isdb' = Internet Service Database-namen;

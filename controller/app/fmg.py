@@ -317,7 +317,7 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
     hc = sd["health_check"]
     sla = hc["sla"]
     # Expliciete members ('Participants: Specify'): zonder deze lijst start FortiOS 7.6 de probes niet
-    health = [{"name": hc["name"], "server": [hc["server"]], "protocol": hc["protocol"],
+    health = [{"name": hc["name"], "server": ([hc["server"]] if isinstance(hc["server"], str) else list(hc["server"])), "protocol": hc["protocol"],
                "interval": 1000, "failtime": 3, "recoverytime": 5,
                # SLA-logregels: voeden FortiView > SD-WAN en de SLA-events in FortiAnalyzer
                "sla-fail-log-period": 10, "sla-pass-log-period": 60,
