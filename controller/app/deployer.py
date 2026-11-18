@@ -419,6 +419,7 @@ def deploy_trafficgen(log, topo, node):
                      "chmod 600 /etc/trafficgen/tls/server.key", check=True)
     _write_files(vmid, {
         "/etc/trafficgen/config.yaml": yaml.safe_dump(traffic_config(topo, node), sort_keys=False),
+        "/etc/sdwlab/networks.json": json.dumps(traffic_config(topo, node)["networks"]),
         "/etc/sdwlab/tg-password": pw + "\n",
         "/root/.tg-pw": pw + "\n",
         "/etc/systemd/system/trafficgen-web.service": (
@@ -455,6 +456,7 @@ def update_labnode(log):
             push_labnode(log, n["vmid"])
             log(f"labnode bijgewerkt in {n['hostname']}")
     update_state(labnode_tree=updates.labnode_tree())
+    apply_traffic_config(log)
 
 
 def apply_traffic_config(log):
@@ -463,7 +465,8 @@ def apply_traffic_config(log):
     for n in nodes_by_role(topo, "trafficgen"):
         if host().status(n["vmid"]) != "running":
             continue
-        _write_files(n["vmid"], {"/etc/trafficgen/config.yaml": yaml.safe_dump(traffic_config(topo, n), sort_keys=False)})
+        _write_files(n["vmid"], {"/etc/trafficgen/config.yaml": yaml.safe_dump(traffic_config(topo, n), sort_keys=False),
+                                 "/etc/sdwlab/networks.json": json.dumps(traffic_config(topo, n)["networks"])})
         host().pct_exec(n["vmid"], "systemctl restart trafficgen-web")
         log(f"{n['hostname']}: bronnetwerken opnieuw gezet")
 
