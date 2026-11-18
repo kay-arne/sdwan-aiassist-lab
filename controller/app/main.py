@@ -455,6 +455,17 @@ def traffic_status():
     return out
 
 
+@app.get("/api/traffic/log/{name}")
+def traffic_log(name: str):
+    """Laatste regels van het Traffic-Gen-log van een branch (foutmeldingen van mislukte verzoeken)."""
+    topo = load_topology()
+    n = next((x for x in nodes_by_role(topo, "trafficgen") if x["name"] == name), None)
+    if not n:
+        raise HTTPException(404, "onbekende Traffic-Gen")
+    rc, txt = host().pct_exec(n["vmid"], "ls -t /var/log/trafficgen/* 2>/dev/null | head -1 | xargs -r tail -n 25", timeout=30)
+    return {"name": name, "log": txt}
+
+
 @app.post("/api/timezone")
 def apply_timezone():
     from . import tz
