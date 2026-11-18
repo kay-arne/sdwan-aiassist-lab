@@ -1,45 +1,48 @@
 # FortiAI-Assist: use cases voor deze demo
 
-FortiAI-Assist is de AI-assistent in **FortiAnalyzer** en **FortiManager** (7.6.x en nieuwer). Hij werkt via de cloud van Fortinet, heeft een
-FortiAI-licentie met maandelijks tokenbudget nodig en is alleen beschikbaar voor lokale administrators. Onderstaand overzicht groepeert de
-use cases die dit lab laat zien; de prompts staan per scenario in de Cockpit (kopieerknop) en op het FortiAI-tabblad.
+Gebaseerd op *Using FortiAI on FortiAnalyzer 7.6.0* en *Using FortiAI on FortiManager 7.6.0*. FortiAI heeft een licentie met maandelijks
+tokenbudget nodig (gedeeld door alle gebruikers), internet vanaf het beheer-poort en een lokale administrator.
 
-> De getoonde antwoorden zijn niet vooraf vastgelegd: FortiAI antwoordt op de data die het lab genereert. De kolom "verwacht" is de
-> bedoelde uitkomst; controleer altijd in de FortiAnalyzer-GUI of het antwoord klopt (dat is zelf een goed demo-punt).
+> De antwoorden zijn niet vooraf vastgelegd: FortiAI antwoordt op de data die het lab genereert. De kolom "verwacht" in de Cockpit is de
+> bedoelde uitkomst; controleer in de normale GUI of het klopt.
 
-## Platform: FortiAnalyzer
+## Wat FortiAI wel en niet kan
 
-| Use case | Scenario | Voorbeeldprompt | Wat je aantoont |
+**FortiAnalyzer**: loganalyse en filteren (prompts worden vertaald naar SQL), reputatiecheck van IP's (FortiGuard, VirusTotal), taart- en
+staafdiagrammen, event handlers aanmaken, incidenten opvragen/bijwerken/rapporteren (ook compromised hosts), proces-info van endpoints en
+endpoints quarantaineren via IP (die laatste twee vereisen een endpoint-/connectorkoppeling die dit lab niet heeft).
+
+**FortiManager**: *Script Assistant* (CLI- en Jinja-scripts, opslaan als script of CLI-template), *VPN Assistant* (VPN-scripts op basis van een
+topologie-afbeelding of geselecteerde apparaten; tunnelstatus controleren en diagnosticeren) en *IoT Device Analysis* (alleen relevant met
+IoT-detectie, niet in dit lab).
+
+Niet: voorspellingen ("hoeveel aanvallen krijg ik morgen"), te vage vragen ("PCI-rapport voor mijn netwerk") en vrije uitleg van een
+FortiManager-template of wijzigingshistorie; die horen bij de normale GUI. De scenario's zijn hierop afgestemd.
+
+## Use cases per platform
+
+| Platform | Use case | Scenario | Voorbeeldprompt |
 |---|---|---|---|
-| Natuurlijke-taal vragen over verkeer | 1 Basislijn | "Which applications used the most bandwidth in the last hour, split per branch?" | geen filtersyntax, dezelfde data als FortiView |
-| SD-WAN-gedrag verklaren | 2 Brownout | "Why did the Teams traffic from FGT-BR1 change transport?" | koppeling SLA-overschrijding ↔ rule ↔ transportwissel |
-| Incident reconstrueren | 3 Blackout, 4 Hub-uitval | "Summarize the events on FGT-BR2 in the last 15 minutes and explain the root cause." | tijdlijn van tunnel-down tot herstel |
-| Impact-analyse | 2, 4 | "Was there a service impact for users? Compare sessions before and after." | sessies verplaatst, niet verloren |
-| Bandbreedte-analyse | 5, 7 | "What are the top 5 bandwidth consumers at FGT-BR3 and which rule matched them?" | business-intent in de praktijk |
-| Security-samenvatting en uitleg | 6 Incident | "Explain the IPS and antivirus events for source 10.12.0.50 and recommend next steps." | uitleg in gewone taal + vervolgstappen |
-| Detectie-effectiviteit | 6 | "Were any threats allowed through, or all blocked?" | blocked/passed, SSL-inspectie als oorzaak van 'missed' |
-| Rapportage | 9 | "Give me an SD-WAN SLA summary per branch for the last 24 hours." | management-overzicht |
+| FortiAnalyzer | Loganalyse en filteren | 1, 2, 3, 5, 7 | "Show top applications by bytes, past hour." |
+| FortiAnalyzer | Grafieken (taart/staaf) | 1, 4, 5, 6, 7, 9 | "Generate a pie chart of traffic per outgoing interface, past hour." |
+| FortiAnalyzer | Event handler aanmaken | 3, 6 | "Create an event handler for IPsec tunnel down on FGT-BR2." |
+| FortiAnalyzer | Reputatiecheck | 6 | "Perform a security reputation check for <IP>." |
+| FortiAnalyzer | Incidenten en rapport | 6 | "List incidents created in the past 24 hours." |
+| FortiAnalyzer | Quarantaine | 6 | "Quarantine 10.12.0.50." (alleen met koppeling) |
+| FortiManager | Script Assistant | 5, 8 | "Create firewall addresses for 10.2.2.1 and awesome-service.com." |
+| FortiManager | VPN Assistant: script | 8 | "Help me configure site-to-site VPN." |
+| FortiManager | VPN Assistant: status/diagnose | 2, 3, 4, 8 | "Check the VPN tunnel status." / "Diagnose the VPN tunnel." |
 
-## Platform: FortiManager
+## Tips voor de demo
 
-| Use case | Scenario | Voorbeeldprompt | Wat je aantoont |
-|---|---|---|---|
-| Configuratie uitleggen | 8 Config | "Explain the SD-WAN overlay template LAB-OVERLAY..." | onboarding, kennisoverdracht |
-| Script genereren | 5, 8 | "Write a CLI script that adds an SD-WAN service rule for Zoom..." | sneller werken; je reviewt en voert uit via *Scripts* |
-| Fout verklaren | 8 | "The script LAB-BAD-SCRIPT failed on FGT-BR1. What is wrong?" | troubleshooting van installatiefouten |
-| Wijzigingshistorie | 8 | "What changed on FGT-BR3 in the last 24 hours?" | audit/change-review |
-| Status van het beheerde park | 4 | "Is FGT-HUB-AMS still connected? What is its configuration status?" | operationeel inzicht |
-
-## Praktische tips voor de demo
-
-- Geef FortiAI **tijd en data**: laat het verkeer minstens 5-10 minuten draaien voordat je vragen stelt over "het afgelopen uur".
-- Stel vragen met **device-namen** zoals ze in FortiManager/FortiAnalyzer staan (`FGT-BR1`, `FGT-HUB-AMS`).
-- Verwijs naar **tijdsvensters** ("last 30 minutes"): de scenario's zijn kort.
-- Controleer het antwoord in de normale GUI; laat zien dat FortiAI de weg naar het antwoord verkort, niet de data vervangt.
-- Het tokenbudget is gedeeld: gebruik de prompts uit de lijst in plaats van open exploratie als je het budget wilt sparen.
-- Het FortiAI-venster zit in de banner van de GUI (FortiAnalyzer en FortiManager). Beschikbaarheid en naamgeving van functies verschilt per 7.6.x-build.
+- **Beknopte prompts**: meer tekst = meer tokens. Geef tijdvensters en limieten mee ("past hour", "top 5").
+- Gebruik **woorden uit de GUI** ("generate report", "create an event handler"), en verwijs naar bestaande event handlers, charts en reports.
+- Een thread overleeft geen reload of logout, en een lange thread kost meer tokens: **Restart Thread** na ongeveer 10 vragen.
+- Het tokenpercentage staat onderin het venster; hover voor sessie-, maand- en totaalverbruik.
+- Onder elk antwoord toont het help-icoon de achterliggende functie-aanroep.
+- Laat verkeer 5-10 minuten draaien voor je naar "het afgelopen uur" vraagt.
+- In FortiManager kies je eerst de assistent (Script, VPN, IoT) in het venster.
 
 ## Eigen use cases toevoegen
 
-Voeg onder `fortiai:` in `lab/scenarios.yaml` een regel `{where, prompt, expect}` toe aan een scenario; de Cockpit en het FortiAI-tabblad pakken
-hem automatisch op. Een nieuw scenario is een `id`, `title`, `story`, `setup`-acties en `fortiai`-vragen.
+Voeg onder `fortiai:` in `lab/scenarios.yaml` een regel `{where, prompt, expect}` toe; de Cockpit en het FortiAI-tabblad pakken hem op.

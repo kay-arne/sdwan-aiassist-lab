@@ -31,9 +31,10 @@ scenarios:
       - {do: traffic, site: all, preset: normal}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Which applications used the most bandwidth in the last hour, split per branch?", expect: "Top-applicaties per FortiGate; vergelijk met FortiView > Applications"}
-      - {where: FortiAnalyzer, prompt: "Show the SD-WAN underlay usage per FortiGate for the last hour. Which transport carries most traffic?", expect: "Verdeling over port2 (underlay A) en port3 (underlay B) per branch"}
-      - {where: FortiAnalyzer, prompt: "Summarize the health of the SD-WAN in the last 24 hours in five bullet points.", expect: "Korte samenvatting; goede opening van een demo"}
+      - {where: FortiAnalyzer, prompt: "Show top applications by bytes, past hour.", expect: "Log-analyse met filter; tabel uit FortiAnalyzer-data (SQL achter de schermen)"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of traffic bytes per FortiGate, past hour.", expect: "Staafdiagram in de chat"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of traffic per outgoing interface, past hour.", expect: "Verdeling over port2 (underlay A), port3 (underlay B) en tunnels"}
+      - {where: FortiAnalyzer, prompt: "What can you help me with?", expect: "FortiAI somt zijn taken op: loganalyse, grafieken, event handlers, incidenten"}
     cleanup: []
 
   - id: brownout
@@ -49,10 +50,10 @@ scenarios:
       - {do: impair, site: br1, transport: A, delay: 150, jitter: 40, loss: 6}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Why did the Teams traffic from FGT-BR1 change transport in the last 30 minutes?", expect: "Verwijst naar SLA-overschrijding op port2 (latency/jitter/loss) en de rule VOICE-VIDEO"}
-      - {where: FortiAnalyzer, prompt: "Show latency, jitter and packet loss for FGT-BR1 per SD-WAN member over the last hour.", expect: "Piek op underlay A vanaf het moment van de impairment"}
-      - {where: FortiAnalyzer, prompt: "Was there a service impact for users in Utrecht? Compare session counts before and after.", expect: "Sessies zijn doorgeschoven, niet weggevallen"}
-      - {where: FortiManager, prompt: "Which SD-WAN rule handles Microsoft Teams, and which SLA does it use?", expect: "VOICE-VIDEO met health-check DC_SLA (latency 80 ms, jitter 20 ms, loss 2%)"}
+      - {where: FortiAnalyzer, prompt: "Show SD-WAN SLA events for FGT-BR1, past 30 minutes.", expect: "Loganalyse op SD-WAN-logs (SLA-wissels, health-check DC_SLA)"}
+      - {where: FortiAnalyzer, prompt: "Filter traffic logs for FGT-BR1, application Microsoft.Teams, past hour. Which interface was used?", expect: "Sessies eerst over port2, na de impairment over port3 (appnaam hangt van de signature af)"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of sessions per outgoing interface for FGT-BR1, past hour.", expect: "Grafiek laat het verschuiven van underlay A naar B zien"}
+      - {where: FortiManager, prompt: "Check the VPN tunnel status.", expect: "VPN Assistant: kies FGT-BR1 in de widget; tunnels over underlay A vertraagd of down, VPN2 gezond"}
     cleanup:
       - {do: clear}
 
@@ -69,9 +70,9 @@ scenarios:
       - {do: link, site: br2, transport: A, state: down}
       - {do: sleep, seconds: 90}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Summarize the events on FGT-BR2 in the last 15 minutes and explain the root cause.", expect: "Tunnels down, SD-WAN member dead, failover naar port3"}
-      - {where: FortiAnalyzer, prompt: "Which IPsec tunnels went down on FGT-BR2 and when did traffic recover over the remaining tunnels?", expect: "Tijdlijn: tunnel-down, BGP-reconvergentie, herstel"}
-      - {where: FortiManager, prompt: "Explain how the overlay template provides redundancy when one underlay fails.", expect: "Per-underlay tunnels naar elke hub, BGP met lagere pref via de andere overlay"}
+      - {where: FortiAnalyzer, prompt: "Show VPN tunnel down events for FGT-BR2, past 15 minutes.", expect: "Tunnel-down-events (HUB1-VPN1, HUB2-VPN1)"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler for IPsec tunnel down on FGT-BR2.", expect: "Event handler met naam en regelsamenvatting; daarna te bekijken en wijzigen in Event Handlers"}
+      - {where: FortiManager, prompt: "Diagnose the VPN tunnel.", expect: "VPN Assistant: kies FGT-BR2; tunnels over underlay A down, samenvatting van mogelijke oorzaken"}
     cleanup:
       - {do: clear}
 
@@ -87,9 +88,9 @@ scenarios:
       - {do: vm, site: hub-ams, op: stop}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Hub FGT-HUB-AMS stopped sending logs. Which branches were affected and how did their traffic move?", expect: "Spokes verplaatsen naar FGT-HUB-FRA"}
-      - {where: FortiAnalyzer, prompt: "Which spoke tunnels to FGT-HUB-AMS were lost in the last 10 minutes?", expect: "Lijst van 3 spokes x 2 tunnels"}
-      - {where: FortiManager, prompt: "Is FGT-HUB-AMS still connected to FortiManager? What is its configuration status?", expect: "Connection down; config-status ongewijzigd"}
+      - {where: FortiAnalyzer, prompt: "Show VPN tunnel down events, past 10 minutes, group by device.", expect: "Per spoke de HUB1-tunnels (6 in totaal)"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of traffic bytes per outgoing interface, past 30 minutes.", expect: "Verkeer is naar de tunnels van HUB2 verschoven"}
+      - {where: FortiManager, prompt: "Check the VPN tunnel status.", expect: "VPN Assistant: kies een spoke; HUB1-tunnels down, HUB2-tunnels up"}
     cleanup:
       - {do: vm, site: hub-ams, op: start}
       - {do: clear}
@@ -104,9 +105,9 @@ scenarios:
       - {do: traffic, site: br3, preset: streaming}
       - {do: sleep, seconds: 180}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Which application categories use underlay B at FGT-BR3 and which use underlay A?", expect: "Streaming op port3, business-apps op port2"}
-      - {where: FortiAnalyzer, prompt: "What are the top 5 bandwidth consumers at FGT-BR3 right now, and which SD-WAN rule matched them?", expect: "Netflix/YouTube met rule STREAMING"}
-      - {where: FortiManager, prompt: "Create an SD-WAN rule that sends Spotify traffic to the lowest-cost member. Give me the CLI.", expect: "Gegenereerd 'config system sdwan / config service'-script; review en uitvoeren als script"}
+      - {where: FortiAnalyzer, prompt: "Show top 5 applications by bytes for FGT-BR3, past hour.", expect: "Netflix / streaming bovenaan"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of bytes per outgoing interface for FGT-BR3, past hour.", expect: "Streaming op port3 (underlay B), conform rule STREAMING"}
+      - {where: FortiManager, prompt: "Create a CLI script for an SD-WAN service rule that sends Spotify traffic to the lowest-cost member.", expect: "Script Assistant: CLI; Save Script of Save CLI Template; review voor uitvoeren"}
     cleanup:
       - {do: traffic_stop}
 
@@ -121,10 +122,13 @@ scenarios:
       - {do: traffic, site: br2, preset: security}
       - {do: sleep, seconds: 240}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Summarize the security events of the last hour. Which host is the most suspicious and why?", expect: "Bron-IP's uit de Rotterdam-Traffic-Gen (10.12.0.50-55) met AV-/DNS-events"}
-      - {where: FortiAnalyzer, prompt: "Explain the IPS and antivirus events for source 10.12.0.50 in plain language and recommend next steps.", expect: "Duidelijke uitleg + advies (isoleren, scannen, DNS-filter)"}
-      - {where: FortiAnalyzer, prompt: "Were any threats allowed through, or were they all blocked? Show the action breakdown.", expect: "Verdeling blocked/passed; HTTPS-malware zonder deep inspection komt 'missed' door"}
-      - {where: FortiAnalyzer, prompt: "Which of these events map to MITRE ATT&CK techniques?", expect: "C2/DNS tunneling mappings, indien de ADOM de mapping heeft"}
+      - {where: FortiAnalyzer, prompt: "List destination IPs of top threats, past 7 days.", expect: "Adressen plus korte analyse en mitigatie-advies"}
+      - {where: FortiAnalyzer, prompt: "Perform a security reputation check for <IP uit het vorige antwoord>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); vraag daarna om mitigatie"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs connected to that IP.", expect: "Taartdiagram met Traffic-Gen-bronnen 10.12.0.50-55"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler for that IP.", expect: "Event handler met naam en regelsamenvatting"}
+      - {where: FortiAnalyzer, prompt: "List incidents created in the past 24 hours.", expect: "Incidenten uit event handlers (kan leeg zijn); vraag door naar details en affected endpoints"}
+      - {where: FortiAnalyzer, prompt: "Produce an incident report for incident <nummer>.", expect: "Rapport met download-icoon in het antwoord"}
+      - {where: FortiAnalyzer, prompt: "Quarantine 10.12.0.50.", expect: "Isolatie via IP; werkt alleen met een gekoppelde connector, laat hem bevestigen. Alleen tonen als de koppeling er is"}
     cleanup:
       - {do: traffic_stop}
 
@@ -138,24 +142,24 @@ scenarios:
       - {do: traffic, site: br1, preset: normal}
       - {do: iperf, site: br1, to: srv-ams, seconds: 60, streams: 4}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Which single session or destination used the most bandwidth in the last 15 minutes at FGT-BR1?", expect: "iperf3 (poort 5201) naar 10.21.0.10"}
-      - {where: FortiAnalyzer, prompt: "Did SD-WAN SLA metrics degrade during the large transfer from 10.11.0.50 to 10.21.0.10?", expect: "Latency/jitter-stijging tijdens de overdracht"}
+      - {where: FortiAnalyzer, prompt: "Show top destinations by bytes for FGT-BR1, past 15 minutes.", expect: "10.21.0.10 (iperf3, poort 5201) bovenaan"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of bytes per destination port for FGT-BR1, past 15 minutes.", expect: "Poort 5201 domineert"}
     cleanup:
       - {do: traffic_stop}
 
   - id: config-assist
-    title: "8. Configuratie met FortiAI in FortiManager"
+    title: "8. Scripts en VPN met FortiAI in FortiManager"
     story: >
-      Geen verstoring: je gebruikt FortiAI-Assist in FortiManager als co-pilot. Uitleg van de overlay, een nieuw SD-WAN-script
-      genereren, en een mislukte installatie laten verklaren.
+      Geen verstoring: FortiAI in FortiManager via de Script Assistant en de VPN Assistant. Kies eerst de assistent bovenin het FortiAI-venster.
     setup:
       - {do: clear}
-      - {do: fmg_script, device: FGT-BR1, name: LAB-BAD-SCRIPT, content: "config system sdwan\n  config service\n    edit 99\n      set name BAD-RULE\n      set dst NOPE-DOES-NOT-EXIST\n    next\n  end\nend"}
     fortiai:
-      - {where: FortiManager, prompt: "Explain the SD-WAN overlay template LAB-OVERLAY: which tunnels, BGP design and ADVPN settings does it create?", expect: "Hubs/spokes, per-underlay IPsec, iBGP, ADVPN-shortcuts"}
-      - {where: FortiManager, prompt: "The script LAB-BAD-SCRIPT failed on FGT-BR1. What is wrong and how do I fix it?", expect: "Verklaart de ongeldige 'dst'-referentie (address object bestaat niet)"}
-      - {where: FortiManager, prompt: "Write a CLI script that adds an SD-WAN service rule for Zoom that prefers the lowest-latency member within SLA DC_SLA.", expect: "Script; je past het toe via Device Manager > Scripts"}
-      - {where: FortiManager, prompt: "What changed on FGT-BR3 in the last 24 hours?", expect: "Revisielijst en diff van de installaties"}
+      - {where: FortiManager, prompt: "Script Assistant: Create firewall addresses for 10.2.2.1 and awesome-service.com.", expect: "Script met twee adressen; Copy Code, Save Script, Save CLI Template"}
+      - {where: FortiManager, prompt: "Script Assistant: Create a CLI script that adds an SD-WAN service rule for Zoom that prefers the lowest-latency member.", expect: "CLI voor config system sdwan / service; review voor uitvoeren"}
+      - {where: FortiManager, prompt: "VPN Assistant: Help me configure site-to-site VPN.", expect: "Kies Select Devices (of upload topologie-afbeelding, max 5 MB); controleer samenvatting; PSK handmatig aanpassen"}
+      - {where: FortiManager, prompt: "VPN Assistant: Check the VPN tunnel status.", expect: "Widget: kies FGT-BR1 en Confirm; rapport van de tunnels"}
+      - {where: FortiManager, prompt: "VPN Assistant: Diagnose the VPN tunnel.", expect: "Diagnose met samenvatting; vraag om oplossing, installeer en controleer opnieuw"}
+      - {where: FortiManager, prompt: "IoT Device Analysis: What do I need to do to detect IoT devices through my FortiGates?", expect: "Alleen uitleg van vereisten; dit lab heeft geen IoT-apparaten"}
     cleanup: []
 
   - id: reporting
@@ -167,7 +171,8 @@ scenarios:
       - {do: traffic, site: all, preset: normal}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Give me an SD-WAN SLA summary per branch for the last 24 hours with the number of SLA violations.", expect: "Tabel per FortiGate"}
-      - {where: FortiAnalyzer, prompt: "Which report templates should I use for a monthly SD-WAN and security report for management?", expect: "Voorstellen voor FortiAnalyzer-rapportsjablonen"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of traffic bytes per FortiGate, past 24 hours.", expect: "Management-grafiek; download via Download Chat History (HTML/PNG)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of top applications by bytes, past 24 hours.", expect: "Applicatie-verdeling"}
+      - {where: FortiAnalyzer, prompt: "Generate report: SD-WAN for FGT-BR1, FGT-BR2, FGT-BR3, past 24 hours.", expect: "Bestaande sjablonen; een vage vraag (bijv. PCI-rapport) kost extra tokens"}
     cleanup:
       - {do: traffic_stop}
