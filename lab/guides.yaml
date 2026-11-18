@@ -18,6 +18,8 @@ guides:
           de situatie te veroorzaken en de vragen die je daarna stelt.
       - image: fmg-overlay.jpg
         caption: "FortiManager > SD-WAN Manager > Overlay Orchestration: de overlay LAB-OVERLAY (twee hubs, spokes via groep SPOKES, BGP AS 65000) is vanuit één template uitgerold."
+      - image: fmg-vpnmap.jpg
+        caption: "FortiManager > VPN Manager > IPsec VPN Map: de FortiGates staan op hun (fictieve) locaties, hubs in Amsterdam en Frankfurt en de branches in Utrecht, Rotterdam en Eindhoven, verbonden door de overlay-tunnels."
       - text: >
           **Stap 1: inloggen.** De adressen en inloggegevens van alle onderdelen open je op elk moment met de knop **Toegang** linksboven
           in deze guide.
