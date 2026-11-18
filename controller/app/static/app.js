@@ -11,7 +11,18 @@ async function api(path, opts = {}) {
   return body;
 }
 const post = (path, data) => api(path, { method: "POST", body: JSON.stringify(data || {}) });
-const copy = (t) => navigator.clipboard && navigator.clipboard.writeText(t);
+// navigator.clipboard bestaat alleen op https/localhost; de controller draait op http, dus val terug op execCommand
+async function copy(text) {
+  try { if (window.isSecureContext && navigator.clipboard) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* terugval */ }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  (document.querySelector(".modal:not([hidden]) .modal-box") || document.body).appendChild(ta);
+  ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
+}
 
 let S = null;       // /api/status
 let CAT = null;     // /api/scenarios
@@ -272,7 +283,7 @@ async function loadCockpit() {
 function aiRow(q) {
   return `<div class="ai-row"><div class="ai-head"><span class="tag">${esc(q.where)}</span><button class="ghost small" data-copy="${esc(q.prompt)}">Kopieer</button></div><div class="ai-prompt">${esc(q.prompt)}</div><div class="hint">${esc(q.expect)}</div></div>`;
 }
-document.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (c) { copy(c.dataset.copy); c.textContent = "Gekopieerd"; setTimeout(() => (c.textContent = "Kopieer"), 1500); } });
+document.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (c) { copy(c.dataset.copy).then((ok) => { c.textContent = ok ? "Gekopieerd" : "Mislukt"; setTimeout(() => (c.textContent = "Kopieer"), 1500); }); } });
 const act = (a) => post("/api/action", a).then((j) => followJob(j)).catch((e) => alert(e.message));
 $("#btn-reset").onclick = () => act({ do: "clear" });
 $("#btn-traffic-stop").onclick = () => act({ do: "traffic_stop", background: false });
