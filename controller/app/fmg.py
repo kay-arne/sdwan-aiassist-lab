@@ -567,7 +567,8 @@ def build_hub_to_hub(log, topo, rpc: JsonRpc, warn):
                        '      set route-map-in "H2H-IN"', f'      set update-source "{ln["name"]}"', "    next"]
         script += ["  end", "  config neighbor-group"]
         for u in topo["sdwan"]["underlays"]:
-            script += [f'    edit "VPN{u["id"]}"', '      set route-map-out "NO-H2H-OUT"', "    next"]
+            # next-hop-self-rr bewust UIT: dat herschrijft de next-hop naar de hub en schakelt daarmee ADVPN-shortcuts uit
+            script += [f'    edit "VPN{u["id"]}"', "      set next-hop-self-rr disable", '      set route-map-out "NO-H2H-OUT"', "    next"]
         script += ["  end", "end"]
         name = f"{base}_HUB{h}_H2H_BGP"
         try:
