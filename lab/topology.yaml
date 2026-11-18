@@ -83,9 +83,9 @@ sdwan:
   # Business-intent regels (SD-WAN rules), van boven naar beneden. 'isdb' = Internet Service Database-namen;
   # een naam die jouw FortiOS-versie niet kent geeft een waarschuwing, de rest wordt gewoon aangemaakt.
   rules:
-    - {name: VOICE-VIDEO,   isdb: [Microsoft-Teams, Zoom-Zoom, Webex-Webex], mode: sla, note: "laagste latency binnen de SLA"}
-    - {name: BUSINESS-SAAS, isdb: [Microsoft-Office365, Salesforce-Salesforce, Google-Gmail], mode: sla, note: "SLA-gestuurd, DIA of via hub"}
-    - {name: STREAMING,     isdb: [Netflix-Netflix, Google-YouTube, Spotify-Spotify], mode: cost, note: "goedkoopste link (underlay B), nooit over de overlay"}
+    - {name: VOICE-VIDEO,   isdb: [Microsoft-Skype_Teams, Zoom.us-Zoom.Meeting, Cisco-Webex], mode: sla, note: "laagste latency binnen de SLA"}
+    - {name: BUSINESS-SAAS, isdb: [Microsoft-Office365, Salesforce-Web, Google-Gmail], mode: sla, note: "SLA-gestuurd, DIA of via hub"}
+    - {name: STREAMING,     isdb: [Netflix-Web, FQDN-Google-YouTube, Spotify-Spotify], mode: cost, note: "goedkoopste link (underlay B), nooit over de overlay"}
     - {name: DC-APPS,       dst: [10.21.0.0/24, 10.22.0.0/24], mode: sla, note: "interne apps in AMS/FRA via de overlay"}
 
 # --- FortiFlex (alleen bij licentiemodus 'FortiFlex via API') --------------------------------
