@@ -315,7 +315,9 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
     z_over, z_under = sd["zones"]["overlay"], sd["zones"]["underlay"]
     hc = sd["health_check"]
     sla = hc["sla"]
+    # Expliciete members ('Participants: Specify'): zonder deze lijst start FortiOS 7.6 de probes niet
     health = [{"name": hc["name"], "server": [hc["server"]], "protocol": hc["protocol"],
+               "members": [str(m["seq-num"]) for m in members],
                "interval": 1000, "failtime": 3, "recoverytime": 5,
                "sla": [{"id": 1, "latency-threshold": sla["latency_ms"], "jitter-threshold": sla["jitter_ms"],
                         "packetloss-threshold": sla["loss_pct"]}]}]
