@@ -196,7 +196,7 @@ scenarios:
       - {where: FortiAnalyzer, prompt: "Open Log View.", expect: "FortiAI opent Log View vanuit het gesprek"}
       - {where: FortiAnalyzer, prompt: "Update the incident and hand off.", expect: "Notitie en status aan het incident; ruimt de overdracht op"}
       - {where: FortiAnalyzer, prompt: "Generate an incident report for <incidentnummer>.", expect: "Rapport met download-icoon in het antwoord"}
-      - {where: FortiAnalyzer, prompt: "Create an event handler for IPsec tunnel down events on FGT-BR2.", expect: "Antwoord \"Yes\" op de bevestigingsvraag; er opent een venster met de regel, klik Create"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler named SOC-Malware-Site-Access for blocked web filter events to malware.wicar.org. Severity high, description: Blocked access to a known malware test site. Create an incident automatically.", expect: "FortiAI bereidt de handler voor en vraagt om bevestiging: klik Create. De handler maakt daarna zelf incidenten aan bij geblokkeerde toegang tot de site"}
       - {where: FortiAnalyzer, prompt: "Can FortiAnalyzer generate a visual on threats?", expect: "FortiAI legt uit wat het kan renderen"}
       - {where: FortiAnalyzer, prompt: "What type of charts can be rendered?", expect: "Antwoord: taartdiagram en staafdiagram (ook gegroepeerd/gestapeld)"}
       - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs that accessed malware.wicar.org, past hour.", expect: "Taartdiagram met de bronnen"}

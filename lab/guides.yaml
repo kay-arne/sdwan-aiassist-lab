@@ -43,11 +43,11 @@ guides:
           maandelijkse tokenbudget is vast. Antwoorden verschillen in woordkeuze maar niet in uitkomst. Het gaat om assisteren, niet vervangen:
           de mens blijft de beslissingen nemen.
       - tip: >
-          **Zo doet FortiAI het direct goed** (uit proeven in dit lab). Noem altijd **één FortiGate** (`FGT-BR2`) en een **kort tijdvenster** (`past hour`): vragen over
-          meerdere apparaten of 7 dagen worden geweigerd ("Fabric ADOM required"). Bij een **event handler** vraagt FortiAI één keer om bevestiging: antwoord
-          `Yes` en klik daarna **Create** in het venster dat opent. Bij de **VPN Assistant** noem je de FortiGate in de vraag; daarna kies je in de widget de
-          tunnels en klik je **Confirm**. Geef de **Script Assistant** alle details in één vraag (vdom, regel-id, namen, waarden) en eindig met `Output only the script`:
-          dan komt er direct een script zonder wedervragen. Een incident moet bestaan voordat FortiAI er een kan ophalen.
+          **Zo doet FortiAI het direct goed** (uit proeven in dit lab). FortiAnalyzer gebruikt de **Fabric-ADOM (`root`)**: alleen daar werken groepsstatistieken
+          en event handlers via FortiAI ("Fabric ADOM required" in een gewone FortiGate-ADOM). Stel vragen zoals een SOC-medewerker: op wat je in de logs ziet
+          (`Show top threats for the past hour`, `Perform a security reputation check for malware.wicar.org`), zonder eerst een device te noemen. Een **event handler**
+          geef je naam, filter, ernst en wens voor een incident in één zin; FortiAI bereidt hem voor en je klikt **Create**. Bij de **VPN Assistant** noem je de FortiGate;
+          daarna kies je de tunnels in de widget en klik je **Confirm**. Geef de **Script Assistant** alle details in één vraag en eindig met `Output only the script`.
       - tip: >
           **Eerst naar de juiste pagina.** FortiAI in FortiAnalyzer werkt in de context van de huidige pagina: open voor logvragen en grafieken eerst
           **Log View > Traffic** (of Event Monitor), anders vraagt FortiAI om je door te sturen. Groepeer grafieken op iets dat betekenis heeft
