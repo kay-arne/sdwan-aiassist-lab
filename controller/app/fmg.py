@@ -319,12 +319,15 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
     # Expliciete members ('Participants: Specify'): zonder deze lijst start FortiOS 7.6 de probes niet
     health = [{"name": hc["name"], "server": [hc["server"]], "protocol": hc["protocol"],
                "interval": 1000, "failtime": 3, "recoverytime": 5,
+               # SLA-logregels: voeden FortiView > SD-WAN en de SLA-events in FortiAnalyzer
+               "sla-fail-log-period": 10, "sla-pass-log-period": 60,
                "sla": [{"id": 1, "latency-threshold": sla["latency_ms"], "jitter-threshold": sla["jitter_ms"],
                         "packetloss-threshold": sla["loss_pct"]}],
                "members": [str(m["seq-num"]) for m in members if not m.get("underlay")]},
               # de underlays (internet) kunnen het datacenter niet bereiken: eigen health-check, anders staan ze 'dead'
               # en wordt de default-route naar het internet inactief
               {"name": "INET", "server": ["8.8.8.8"], "protocol": "ping", "interval": 1000, "failtime": 3, "recoverytime": 5,
+               "sla-fail-log-period": 10, "sla-pass-log-period": 60,
                "members": [str(m["seq-num"]) for m in members if m.get("underlay")]}]
     addresses, services = [], []
     by_underlay = {m["underlay"]: m["seq-num"] for m in members if m.get("underlay")}
@@ -588,6 +591,27 @@ def policy_package(log, topo, rpc: JsonRpc, warn, zones: dict):
         warn(f"package-scope: {e}")
 
 
+def set_locations(log, topo, rpc: JsonRpc, warn):
+    """Breedte- en lengtegraad per FortiGate, zodat FortiManager (VPN-kaart) ze op de juiste plek toont."""
+    ad = adom(topo)
+    n = 0
+    for s in topo["sites"]:
+        if s.get("lat") is None:
+            continue
+        lat, lon = str(s["lat"]), str(s["lon"])
+        try:
+            rpc.update(f"/dvmdb/adom/{ad}/device/{s['fgt_name']}", {"latitude": lat, "longitude": lon})
+            n += 1
+        except RpcError as e:
+            warn(f"locatie {s['fgt_name']}: {e}")
+        try:       # ook op de FortiGate zelf (GUI toont de kaartlocatie in System > Settings)
+            rpc.update(f"/pm/config/device/{s['fgt_name']}/global/system/global",
+                       {"gui-device-latitude": lat, "gui-device-longitude": lon})
+        except RpcError:
+            pass
+    log(f"[FortiManager] locaties gezet op {n} FortiGates")
+
+
 def default_route_via_sdwan(log, topo, rpc: JsonRpc, warn):
     """Statische default-routes via port2/port3 zijn 'inactive' zodra die poorten SD-WAN-member zijn (branches hebben dan geen
     internet). Vervang ze door één default-route via de underlay-zone van de SD-WAN."""
@@ -646,6 +670,7 @@ def provision(log, topo, devices=None) -> list[str]:
     add_devices(log, topo, rpc, warn)
     from . import tz
     tz.fortigates(log, topo, rpc, warn)
+    set_locations(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
         build_hub_tunnel_ips(log, topo, rpc, warn)
         build_sdwan(log, topo, rpc, warn)

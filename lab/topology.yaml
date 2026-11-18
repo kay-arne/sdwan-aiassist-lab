@@ -53,12 +53,13 @@ fortigate:
   cores: 2
   memory: 4096
   log_disk_gb: 32
+# lat/lon: ligging van de vestiging; FortiManager toont de FortiGates daarmee op de kaart
 sites:
-  - {id: hub-ams, role: hub,   name: "Hub Amsterdam",   hub_rank: 1, lan: dc-ams, mgmt_ip: 10.255.0.21, lan_ip: 10.21.0.1}
-  - {id: hub-fra, role: hub,   name: "Hub Frankfurt",   hub_rank: 2, lan: dc-fra, mgmt_ip: 10.255.0.22, lan_ip: 10.22.0.1}
-  - {id: br1,     role: spoke, name: "Branch Utrecht",    lan: br1, mgmt_ip: 10.255.0.31, lan_ip: 10.11.0.1}
-  - {id: br2,     role: spoke, name: "Branch Rotterdam",  lan: br2, mgmt_ip: 10.255.0.32, lan_ip: 10.12.0.1}
-  - {id: br3,     role: spoke, name: "Branch Eindhoven",  lan: br3, mgmt_ip: 10.255.0.33, lan_ip: 10.13.0.1}
+  - {id: hub-ams, lat: 52.3676, lon: 4.9041, role: hub,   name: "Hub Amsterdam",   hub_rank: 1, lan: dc-ams, mgmt_ip: 10.255.0.21, lan_ip: 10.21.0.1}
+  - {id: hub-fra, lat: 50.1109, lon: 8.6821, role: hub,   name: "Hub Frankfurt",   hub_rank: 2, lan: dc-fra, mgmt_ip: 10.255.0.22, lan_ip: 10.22.0.1}
+  - {id: br1, lat: 52.0907, lon: 5.1214,     role: spoke, name: "Branch Utrecht",    lan: br1, mgmt_ip: 10.255.0.31, lan_ip: 10.11.0.1}
+  - {id: br2, lat: 51.9244, lon: 4.4777,     role: spoke, name: "Branch Rotterdam",  lan: br2, mgmt_ip: 10.255.0.32, lan_ip: 10.12.0.1}
+  - {id: br3, lat: 51.4416, lon: 5.4697,     role: spoke, name: "Branch Eindhoven",  lan: br3, mgmt_ip: 10.255.0.33, lan_ip: 10.13.0.1}
 
 # --- SD-WAN overlay (FortiManager SD-WAN Overlay Template) -------------------------
 sdwan:
