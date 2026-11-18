@@ -85,7 +85,7 @@ sdwan:
   rules:
     - {name: VOICE-VIDEO,   isdb: [Microsoft-Skype_Teams, Zoom.us-Zoom.Meeting, Cisco-Webex], mode: sla, note: "laagste latency binnen de SLA"}
     - {name: BUSINESS-SAAS, isdb: [Microsoft-Office365, Salesforce-Web, Google-Gmail], mode: sla, note: "SLA-gestuurd, DIA of via hub"}
-    - {name: STREAMING,     isdb: [Netflix-Web, FQDN-Google-YouTube, Spotify-Spotify], mode: cost, note: "goedkoopste link (underlay B), nooit over de overlay"}
+    - {name: STREAMING,     isdb: [Netflix-Web, Spotify-Spotify], mode: cost, note: "goedkoopste link (underlay B), nooit over de overlay"}
     - {name: DC-APPS,       dst: [10.21.0.0/24, 10.22.0.0/24], mode: sla, note: "interne apps in AMS/FRA via de overlay"}
 
 # --- FortiFlex (alleen bij licentiemodus 'FortiFlex via API') --------------------------------
