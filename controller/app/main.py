@@ -518,12 +518,13 @@ class FmgCall(BaseModel):
 @app.post("/api/fmg/call")
 def fmg_call(q: FmgCall):
     """Ontwikkelhulp: JSON-RPC-aanroep naar FortiManager, beperkt tot het SD-WAN-sjabloon van het lab-ADOM
-    (/pm/wanprof/ en /pm/config/adom/<adom>/wanprof/). Alles daarbuiten is alleen-lezen via /api/fmg/get."""
+    (wanprof, template-groepen en adres-objecten). Alles daarbuiten is alleen-lezen via /api/fmg/get."""
     from . import fmg
     from .jsonrpc import RpcError
     topo = load_topology()
     ad = fmg.adom(topo)
-    allowed = (f"/pm/wanprof/adom/{ad}", f"/pm/config/adom/{ad}/wanprof/")
+    allowed = (f"/pm/wanprof/adom/{ad}", f"/pm/config/adom/{ad}/wanprof/", f"/pm/tmplgrp/adom/{ad}",
+               f"/pm/config/adom/{ad}/obj/firewall/address")
     if q.method not in ("get", "add", "set", "update", "delete") or not q.url.startswith(allowed):
         raise HTTPException(400, "alleen get/add/set/update/delete op het wanprof-sjabloon van het lab-ADOM")
     extra = {"option": q.option} if q.option else {}
