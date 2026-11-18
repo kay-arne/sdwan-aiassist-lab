@@ -34,7 +34,7 @@ wat je tegenkwam.
    de namen van de nodes en het scope-formaat verschillen per 7.6.x-build; de code probeert varianten en meldt wat mislukt. Bouw bij twijfel de
    template één keer in de GUI en vergelijk met `GET /pm/config/adom/SDWAN-LAB/template/_sdwan_overlay/LAB-OVERLAY/sdwan/overlay`.
 5. **SD-WAN-template**: de health-check en rules worden in de door de orchestratie gegenereerde SD-WAN-template gezet (naam gezocht op
-   `LAB-OVERLAY`). ISDB-namen (`Microsoft-Teams`, `Zoom-Zoom`, ...) moeten bestaan in jouw ISDB-versie; een onbekende naam geeft een waarschuwing.
+   `LAB-OVERLAY`). ISDB-namen (`Microsoft-Skype_Teams`, `Zoom.us-Zoom.Meeting`, ...) moeten bestaan in jouw ISDB-versie; een onbekende naam geeft een waarschuwing.
 6. **Zones en policy package**: de controller leest de zone-namen uit de gegenereerde SD-WAN-template (`overlay`/`underlay`); controleer dat
    de policies in `LAB-PKG` naar bestaande zones verwijzen.
 7. **Installatie**: eerst *device settings* (templates), dan het *policy package*. Een mislukte taak staat in FortiManager onder *Task Monitor*.
