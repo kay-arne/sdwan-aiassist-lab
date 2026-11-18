@@ -537,6 +537,36 @@ def fmg_call(q: FmgCall):
         rpc.logout()
 
 
+class FgtMonitor(BaseModel):
+    device: str
+    resource: str
+
+
+FGT_MONITOR_ALLOWED = ("/api/v2/monitor/vpn/ipsec", "/api/v2/monitor/router/bgp/neighbors",
+                       "/api/v2/monitor/virtual-wan/health-check", "/api/v2/monitor/virtual-wan/members",
+                       "/api/v2/monitor/router/ipv4", "/api/v2/monitor/system/status",
+                       "/api/v2/monitor/system/interface", "/api/v2/monitor/system/config/status")
+
+
+@app.post("/api/fgt/monitor")
+def fgt_monitor(q: FgtMonitor):
+    """Alleen-lezen monitor-API van een FortiGate, via de FortiManager-proxy (tunnels, BGP, SD-WAN)."""
+    from . import fmg
+    from .jsonrpc import RpcError
+    topo = load_topology()
+    if q.device not in fmg.device_names(topo) or not q.resource.startswith(FGT_MONITOR_ALLOWED):
+        raise HTTPException(400, "onbekend device of niet-toegestane resource")
+    rpc = fmg.client(topo)
+    try:
+        res = rpc.exec("/sys/proxy/json", {"target": [f"adom/{fmg.adom(topo)}/device/{q.device}"], "action": "get",
+                                          "resource": q.resource})
+        return {"device": q.device, "resource": q.resource, "data": res}
+    except RpcError as e:
+        return {"device": q.device, "resource": q.resource, "error": str(e)}
+    finally:
+        rpc.logout()
+
+
 @app.get("/api/fortiai/status")
 def fortiai_status():
     return faz.fortiai_status(load_topology())
