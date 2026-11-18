@@ -95,18 +95,27 @@ def authorize_devices(log, topo, warn):
         known = {d["name"] for d in (rpc.get(f"/dvmdb/adom/{ad}/device") or [])}
     except RpcError:
         known = set()
+    try:                                    # nog niet geautoriseerde FortiGates (komen binnen via hun logging)
+        unreg = {d["name"]: d for d in (rpc.get("/dvmdb/device") or []) if d.get("name")}
+    except RpcError:
+        unreg = {}
     for site in topo["sites"]:
         name = site["fgt_name"]
         if name in known:
             continue
+        if name in unreg:                   # de normale weg: een 'unregistered' device goedkeuren
+            device = {"name": name, "device action": "promote_unreg"}
+            how = "goedgekeurd"
+        else:
+            log(f"[FortiAnalyzer] {name} stuurt nog geen logs; probeer als echt device toe te voegen")
+            device = {"name": name, "ip": site["mgmt_ip"], "adm_usr": "admin",
+                      "adm_pass": get_state()["admin_password"], "mgmt_mode": "fmgfaz"}
+            how = "toegevoegd"
         try:
-            res = rpc.exec("/dvm/cmd/add/device", {
-                "adom": ad, "flags": ["create_task", "nonblocking"],
-                "device": {"name": name, "ip": site["mgmt_ip"], "adm_usr": "admin",
-                           "adm_pass": get_state()["admin_password"], "mgmt_mode": "fmgfaz"}})
+            res = rpc.exec("/dvm/cmd/add/device", {"adom": ad, "flags": ["create_task", "nonblocking"], "device": device})
             if isinstance(res, dict) and res.get("taskid"):
                 rpc.wait_task(res["taskid"], log)
-            log(f"[FortiAnalyzer] {name} geautoriseerd")
+            log(f"[FortiAnalyzer] {name} {how} in ADOM {ad}")
         except RpcError as e:
             warn(f"FortiAnalyzer: {name} autoriseren: {e}")
     rpc.logout()
