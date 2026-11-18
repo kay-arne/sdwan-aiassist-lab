@@ -584,6 +584,24 @@ def policy_package(log, topo, rpc: JsonRpc, warn, zones: dict):
         warn(f"package-scope: {e}")
 
 
+def default_route_via_sdwan(log, topo, rpc: JsonRpc, warn):
+    """Statische default-routes via port2/port3 zijn 'inactive' zodra die poorten SD-WAN-member zijn (branches hebben dan geen
+    internet). Vervang ze door één default-route via de underlay-zone van de SD-WAN."""
+    zone = topo["sdwan"]["zones"]["underlay"]
+    for s in topo["sites"]:
+        base = f"/pm/config/device/{s['fgt_name']}/vdom/root/router/static"
+        try:
+            for rid in (1, 2):
+                try:
+                    rpc.delete(f"{base}/{rid}")
+                except RpcError:
+                    pass
+            rpc.upsert(base, {"seq-num": 1, "dst": ["0.0.0.0", "0.0.0.0"], "sdwan-zone": [zone], "status": "enable"})
+        except RpcError as e:
+            warn(f"default-route {s['fgt_name']}: {e}")
+    log(f"[FortiManager] default-route via SD-WAN-zone {zone} op {len(topo['sites'])} FortiGates")
+
+
 def discover_zones(rpc: JsonRpc, topo) -> dict:
     return {"overlay": topo["sdwan"]["zones"]["overlay"], "underlay": topo["sdwan"]["zones"]["underlay"]}
 
@@ -627,6 +645,7 @@ def provision(log, topo, devices=None) -> list[str]:
     if build_overlay(log, topo, rpc, warn):
         build_hub_tunnel_ips(log, topo, rpc, warn)
         build_sdwan(log, topo, rpc, warn)
+        default_route_via_sdwan(log, topo, rpc, warn)
         # eerst de device-settings (maakt de zones op de FortiGates), daarna pas objecten en policies
         install(log, topo, rpc, warn, devices, only="device")
     zones = discover_zones(rpc, topo)
