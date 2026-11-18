@@ -163,6 +163,9 @@ def run_action(log, topo, a: dict):
         iperf(log, topo, a["site"], a["to"], a.get("seconds", 20), a.get("streams", 4))
     elif do == "fmg_script":
         fmg_script(log, topo, a["device"], a["name"], a["content"])
+    elif do == "faz_handler":
+        from . import faz
+        faz.ensure_event_handler(log, topo, a.get("preset") or "soc-malware")
     elif do == "sleep":
         for _ in range(int(a["seconds"]) // 5):
             time.sleep(5)

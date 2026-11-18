@@ -1,7 +1,7 @@
 # Labguides: verhaal + knoppen + FortiAI-prompts per hoofdstuk, getoond onder het tabblad "Labguides".
 # Stappen:
 #   {text: ".."}                                     uitleg (**vet** en `code` mogelijk)
-#   {buttons: [{label, action: {do: ..}}]}           acties uit scenarios.yaml (impair, link, clear, traffic, traffic_stop, vm, iperf)
+#   {buttons: [{label, action: {do: ..}}]}           acties uit scenarios.yaml (impair, link, clear, traffic, traffic_stop, vm, iperf, ping, faz_handler)
 #   {buttons: [{label, check: health|links, device}]}  toont live SD-WAN-status in de guide
 #   {ai: all | [0, 2]}                               FortiAI-prompts van het scenario (kopieerknop)
 #   {tip: ".."}                                      hint
@@ -187,7 +187,15 @@ guides:
       - image: faz-eventmonitor.jpg
         caption: "Incidents & Events > Event Monitor: FortiAnalyzer heeft de aanvalssessies al omgezet naar events (kritieke risicovolle app, proxy-avoidance, kwaadaardige website geblokkeerd) per bronhost."
       - tip: "Vragen met <IP> of <nummer> vul je in met het resultaat van de vorige vraag in dezelfde thread."
-      - ai: all
+      - ai: [0, 1, 2, 3]
+      - text: >
+          **Event handler controleren en plaatsen.** FortiAI bouwt de handler met een filter dat niet altijd op onze FortiGate-weblogs past, waardoor er geen
+          incidenten uit komen. Klik na het uitvoeren van de prompt op **Event handler plaatsen**: de controller zet `SOC-Malware-Site-Access` neer met
+          een werkend filter (Web Filter, geblokkeerd, malware.wicar.org) en automatisch incident. Een door FortiAI gemaakte handler met dezelfde naam wordt vervangen.
+      - buttons:
+          - {label: "Event handler plaatsen", action: {do: faz_handler, preset: soc-malware}}
+      - text: "Wacht twee tot drie minuten; daarna verschijnen de incidenten (Incidents & Events > Incidents)."
+      - ai: [4, 5]
       - buttons:
           - {label: "Opruimen", action: {do: traffic_stop}}
 
@@ -253,7 +261,11 @@ guides:
       - text: "**Start het scenario**: aanvalsverkeer vanuit Rotterdam. Wacht minstens vier minuten, liefst langer."
       - buttons:
           - {label: "Aanvalsverkeer in Rotterdam", action: {do: traffic, site: br2, preset: security}}
-      - tip: "Voor stap 1 heb je een incident nodig: maak er een in **Incidents & Events** vanuit een security-event."
+      - text: >
+          **Incidenten klaarzetten.** Voor deel 1 heb je incidenten nodig. Klik op **Event handler plaatsen**: de controller zet de handler
+          `SOC-Malware-Site-Access` neer die bij elke geblokkeerde toegang tot malware.wicar.org zelf een incident aanmaakt. Na twee tot drie minuten staan ze er.
+      - buttons:
+          - {label: "Event handler plaatsen", action: {do: faz_handler, preset: soc-malware}}
       - image: faz-eventmonitor.jpg
         caption: "Vanuit de Event Monitor maak je het incident aan (Actions > Create Incident) waar FortiAI mee verder gaat."
       - text: "**Deel 1: incident onderzoeken**"
@@ -264,6 +276,9 @@ guides:
       - text: "**Wat je benadrukt:** een incidentrapport met het volledige onderzoek voor nabespreking en compliance."
       - text: "**Deel 3: aangepaste detectieregel**"
       - ai: [7]
+      - text: "Maakte FortiAI de handler met een filter dat niets oplevert? Plaats dan de werkende versie:"
+      - buttons:
+          - {label: "Event handler plaatsen", action: {do: faz_handler, preset: soc-malware}}
       - text: "**Wat je benadrukt:** een detectieregel maken kost een paar zinnen in plaats van handmatig regels bouwen, en de regels zijn afgestemd op de omgeving."
       - text: "**Deel 4: rapport en visualisatie**"
       - image: faz-fortiai-chart.jpg

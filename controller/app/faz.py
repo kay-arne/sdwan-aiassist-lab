@@ -1,6 +1,7 @@
 """FortiAnalyzer: day-0, licentie, devices autoriseren, logging- en FortiAI-controle."""
 from __future__ import annotations
 
+import random
 import time
 
 from . import console, fmg
@@ -146,6 +147,52 @@ def set_locations(log, topo, warn):
             except RpcError as e:
                 warn(f"locatie {s['fgt_name']} (FortiAnalyzer): {e}")
         log(f"[FortiAnalyzer] locaties gezet op {n} FortiGates")
+    finally:
+        rpc.logout()
+
+
+# Event handlers die de labguide plaatst. FortiAI bouwt zelf handlers op genormaliseerde velden (Fabric/Normalized Log),
+# die onze FortiGate-weblogs niet matchen; deze versie filtert op de ruwe webfilter-velden en werkt altijd.
+EVENT_HANDLERS = {
+    "soc-malware": {
+        "name": "SOC-Malware-Site-Access",
+        "description": "Blocked access to a known malware test site. Create an incident automatically.",
+        "rule": {"name": "Blocked Malicious Websites Access", "logtype": "webfilter",
+                 "filter-expr": 'hostname="malware.wicar.org" and action="blocked"',
+                 "groupby1": "endpoint", "severity": 1, "risk-severity": 4},
+    },
+}
+
+
+def _hid() -> str:
+    return "_".join(f"{random.randrange(0x1000):03x}" for _ in range(4))
+
+
+def ensure_event_handler(log, topo, preset: str = "soc-malware"):
+    """Maakt de event handler aan, of vervangt een bestaande (ook een door FortiAI gemaakte) met dezelfde naam."""
+    spec = EVENT_HANDLERS.get(preset)
+    if not spec:
+        raise ValueError(f"onbekende event handler '{preset}'")
+    rpc = client(topo)
+    try:
+        base = f"/config/adom/{topo['fortianalyzer']['adom']}/alert/basic-handler"
+        now = int(time.time())
+        cur = (rpc.get(base, filter=["name", "==", spec["name"]]) or [])
+        old = cur[0] if cur else {}
+        rule = {"aggregate-expr": "COUNT(*)>=1", "devtype": 0, "enable": 1, "eventstatus": "auto", "eventtype": None,
+                "extrainfo": None, "extrainfo-type": 0, "filter": None, "filter-relation": 1, "groupby2": "",
+                "groupby3": "", "indicator": None, "tags": "", "thres-duration": 30, "utmevent": "",
+                **spec["rule"]}
+        old_rules = old.get("rule") or []
+        rule["rule-id"] = (old_rules[0].get("rule-id") if old_rules else None) or _hid()
+        data = {"name": spec["name"], "description": spec["description"], "enable": 1, "auto-raise-incident": 1,
+                "automation-stitch": 0, "notification": "", "data-selector": "", "mitre-info": "",
+                "content-pack-id": "", "content-pack-uuid": "", "protected": 0, "template-url": "", "uuid": "",
+                "version": 2, "enable-time": 0, "creation-time": old.get("creation-time") or now, "update-time": now,
+                "handler-id": old.get("handler-id") or _hid(), "rule": [rule]}
+        rpc.call("set", f"{base}/{data['handler-id']}", data)
+        log(f"[FortiAnalyzer] event handler {spec['name']} {'bijgewerkt' if old else 'aangemaakt'} "
+            f"(Web Filter, {rule['filter-expr']}, automatisch incident); incidenten volgen binnen enkele minuten")
     finally:
         rpc.logout()
 
