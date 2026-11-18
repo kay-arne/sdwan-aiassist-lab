@@ -13,6 +13,7 @@ lab:
   uplink_bridge: vmbr0       # fysieke bridge: FMG/FAZ port1, ISP-router (internet), Traffic-Gen GUI
   template_net: "ip=dhcp"
   timezone: Europe/Amsterdam
+  dashboard_template: minimal   # standaard dashboardsjabloon van de FortiGate-admin: geen wizard bij de eerste aanmelding
 
 # --- netwerken (bridges zonder fysieke poort) -----------------------------------
 segments:

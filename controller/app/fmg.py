@@ -707,6 +707,17 @@ def policy_package(log, topo, rpc: JsonRpc, warn, zones: dict):
         warn(f"package-scope: {e}")
 
 
+def set_dashboard_template(log, topo, rpc: JsonRpc, warn):
+    """Dashboardsjabloon van de FortiGate-admin vastleggen, zodat een installatie hem niet leegmaakt en de wizard wegblijft."""
+    tpl = topo["lab"].get("dashboard_template", "minimal")
+    for s in topo["sites"]:
+        try:
+            rpc.update(f"/pm/config/device/{s['fgt_name']}/global/system/admin/admin", {"gui-default-dashboard-template": tpl})
+        except RpcError as e:
+            warn(f"dashboardsjabloon {s['fgt_name']}: {e}")
+    log(f"[FortiManager] dashboardsjabloon '{tpl}' in de device-database van {len(topo['sites'])} FortiGates")
+
+
 def set_locations(log, topo, rpc: JsonRpc, warn):
     """Breedte- en lengtegraad per FortiGate, zodat FortiManager (VPN-kaart) ze op de juiste plek toont."""
     ad = adom(topo)
@@ -787,6 +798,7 @@ def provision(log, topo, devices=None) -> list[str]:
     from . import tz
     tz.fortigates(log, topo, rpc, warn)
     set_locations(log, topo, rpc, warn)
+    set_dashboard_template(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
         build_hub_tunnel_ips(log, topo, rpc, warn)
         build_hub_to_hub(log, topo, rpc, warn)

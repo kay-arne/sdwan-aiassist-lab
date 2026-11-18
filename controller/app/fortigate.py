@@ -46,6 +46,7 @@ def bootstrap_config(topo: dict, state: dict, site: dict) -> str:
         "config system admin",
         "  edit admin",
         f'    set password "{pw}"',
+        f'    set gui-default-dashboard-template "{topo["lab"].get("dashboard_template", "minimal")}"',    # geen indelingswizard bij de eerste aanmelding
         "  next",
         "end",
         "config system interface",
