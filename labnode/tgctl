@@ -9,6 +9,7 @@ import http.cookiejar
 import json
 import ssl
 import sys
+import time
 import urllib.request
 
 PORT = 8443
@@ -47,6 +48,11 @@ def main():
             call("/api/stop", {})                              # een lopende test eerst stoppen (apply geeft anders 409)
         except SystemExit:
             pass
+        for _ in range(30):                                     # stoppen gaat asynchroon: wachten tot hij echt stilstaat
+            st = call("/api/state")
+            if not (st.get("running") or st.get("state") in ("running", "stopping")):
+                break
+            time.sleep(1)
         nets = json.load(open("/etc/sdwlab/networks.json"))
         call("/api/network/apply", {"networks": nets})          # bronnetwerken (her)activeren; zonder lijst wist Traffic-Gen ze
         print(json.dumps(call("/api/start", body)))
