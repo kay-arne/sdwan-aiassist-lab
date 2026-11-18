@@ -554,6 +554,11 @@ def build_hub_to_hub(log, topo, rpc: JsonRpc, warn):
             script += [f'    edit "{ln["remote_ip"]}"', f"      set remote-as {topo['sdwan']['as_number']}",
                        "      set next-hop-self enable", "      set next-hop-self-rr enable", "      set soft-reconfiguration enable",
                        f'      set update-source "{ln["name"]}"', "    next"]
+        script += ["  end", "  config neighbor-group"]
+        # routes van de andere hub (via de reflectie) met de eigen hub als next-hop aan de spokes geven; anders wijst de
+        # next-hop naar het H2H-adres van de andere hub en is dat voor de spokes alleen via de underlay bereikbaar
+        for u in topo["sdwan"]["underlays"]:
+            script += [f'    edit "VPN{u["id"]}"', "      set next-hop-self-rr enable", "    next"]
         script += ["  end", "end"]
         name = f"{base}_HUB{h}_H2H_BGP"
         try:
