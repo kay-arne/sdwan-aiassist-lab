@@ -82,10 +82,21 @@ def traffic(log, topo, site, preset):
         log(f"{n['name']}: verkeer '{preset}' {'gestart' if rc == 0 else 'MISLUKT: ' + out.strip()[-200:]}")
 
 
-def traffic_stop(log, topo):
+def traffic_stop(log, topo, background=True):
+    """Scenario-verkeer stoppen; standaard keert het lab terug naar het achtergrondverkeer (logs blijven stromen)."""
     for n in nodes_by_role(topo, "trafficgen"):
         host().pct_exec(n["vmid"], "tgctl stop")
-    log("verkeer gestopt")
+    if background:
+        log("scenario-verkeer gestopt; achtergrondverkeer hervat")
+        traffic(log, topo, "all", "background")
+    else:
+        log("verkeer gestopt")
+
+
+def start_background(log, topo):
+    """Constant achtergrondverkeer op alle branches (draait door tot het wordt vervangen of gestopt)."""
+    log("== achtergrondverkeer: zakelijk, streaming en ongewenst verkeer in alle branches ==")
+    traffic(log, topo, "all", "background")
 
 
 def vm_power(log, topo, site, op):
@@ -129,7 +140,7 @@ def run_action(log, topo, a: dict):
     elif do == "traffic":
         traffic(log, topo, a["site"], a["preset"])
     elif do == "traffic_stop":
-        traffic_stop(log, topo)
+        traffic_stop(log, topo, a.get("background", True))
     elif do == "vm":
         vm_power(log, topo, a["site"], a["op"])
     elif do == "iperf":

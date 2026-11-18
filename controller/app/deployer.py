@@ -517,7 +517,16 @@ def deploy_all(log):
     day0_and_license(log, topo)
     log("== 6/6 provisioning via FortiManager ==")
     provision_all(log, topo)
+    _start_background(log, topo)
     update_state(deployed=True, labnode_tree=updates.labnode_tree())
+
+
+def _start_background(log, topo):
+    try:
+        from . import scenarios
+        scenarios.start_background(log, topo)
+    except Exception as e:      # verkeer is bijzaak; de uitrol mag hier niet op stuklopen
+        log(f"! achtergrondverkeer niet gestart: {e}")
 
 
 def component_ids(topo) -> list[str]:
@@ -591,6 +600,7 @@ def deploy_selected(log, items, recreate=False):
     day0_and_license(log, topo, [k for k in ("fmg", "faz") if k in items])
     if "config" in items or any(i.startswith("fgt:") for i in items):
         provision_all(log, topo)
+        _start_background(log, topo)
 
 
 def destroy_all(log, remove_template=False, remove_net=False):

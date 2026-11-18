@@ -281,7 +281,7 @@ function aiRow(q) {
 document.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (c) { copy(c.dataset.copy); c.textContent = "Gekopieerd"; setTimeout(() => (c.textContent = "Kopieer"), 1500); } });
 const act = (a) => post("/api/action", a).then((j) => followJob(j)).catch((e) => alert(e.message));
 $("#btn-reset").onclick = () => act({ do: "clear" });
-$("#btn-traffic-stop").onclick = () => act({ do: "traffic_stop" });
+$("#btn-traffic-stop").onclick = () => act({ do: "traffic_stop", background: false });
 $("#m-impair").onclick = () => act({ do: "impair", site: $("#m-site").value, transport: $("#m-tr").value, delay: +$("#m-delay").value || null, jitter: +$("#m-jitter").value || null, loss: +$("#m-loss").value || null });
 $("#m-down").onclick = () => act({ do: "link", site: $("#m-site").value, transport: $("#m-tr").value, state: "down" });
 $("#m-up").onclick = () => act({ do: "link", site: $("#m-site").value, transport: $("#m-tr").value, state: "up" });

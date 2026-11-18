@@ -14,6 +14,9 @@
 #   {do: sleep, seconds: 30}
 
 traffic_presets:
+  # Achtergrondverkeer: start automatisch na de uitrol en blijft draaien, zodat FortiAnalyzer altijd een mix aan logs heeft:
+  # zakelijk (Office 365, Teams/Zoom, SaaS), streaming/social, en een klein deel ongewenst (webfilter, malware, IOC/botnet).
+  background: {office365: 20, collab: 12, streaming: 18, social: 8, saas: 10, web: 10, updates: 4, download: 3, sdwan: 3, webfilter: 5, malware: 4, ioc: 3}
   normal:    {office365: 25, collab: 20, streaming: 20, social: 10, saas: 10, web: 10, updates: 3, download: 2, sdwan: 5, webfilter: 0, malware: 0, ioc: 0}
   streaming: {office365: 5, collab: 5, streaming: 70, social: 15, saas: 0, web: 5, updates: 0, download: 0, sdwan: 5, webfilter: 0, malware: 0, ioc: 0}
   voice:     {office365: 15, collab: 70, streaming: 0, social: 0, saas: 10, web: 0, updates: 0, download: 0, sdwan: 5, webfilter: 0, malware: 0, ioc: 0}

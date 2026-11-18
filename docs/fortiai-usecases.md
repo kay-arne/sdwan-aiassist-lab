@@ -46,3 +46,10 @@ FortiManager-template of wijzigingshistorie; die horen bij de normale GUI. De sc
 ## Eigen use cases toevoegen
 
 Voeg onder `fortiai:` in `lab/scenarios.yaml` een regel `{where, prompt, expect}` toe; de Cockpit en het FortiAI-tabblad pakken hem op.
+
+## Achtergrondverkeer
+
+Na elke uitrol start de controller automatisch het preset `background` op alle branch-Traffic-Gens: zakelijk verkeer (Office 365, Teams/Zoom, SaaS),
+streaming en social, en een klein constant deel ongewenst verkeer (webfilter-categorieën, EICAR-malware, botnet/IOC-DNS). Zo bouwt FortiAnalyzer
+vanaf het begin een gevarieerde logset op. Scenario's vervangen het verkeer tijdelijk; hun opruimstap en de knop "Verkeer stoppen" in de
+Cockpit werken zo: een scenario eindigt met het terugzetten van het achtergrondverkeer, de knop stopt alles.

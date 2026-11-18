@@ -643,6 +643,7 @@ class Action(BaseModel):
     to: Optional[str] = None
     seconds: Optional[int] = None
     streams: Optional[int] = None
+    background: Optional[bool] = None
 
 
 @app.post("/api/action")
