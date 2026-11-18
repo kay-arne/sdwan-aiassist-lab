@@ -90,7 +90,7 @@ def authorize_devices(log, topo, warn):
         time.sleep(30)
     rpc = wait_api(log, topo)
     ad = topo["fortianalyzer"]["adom"]
-    fmg.ensure_adom(log, rpc, ad, "FortiAnalyzer")
+    fmg.ensure_adom(log, rpc, ad, "FortiAnalyzer", fabric=True)
     try:
         known = {d["name"] for d in (rpc.get(f"/dvmdb/adom/{ad}/device") or [])}
     except RpcError:

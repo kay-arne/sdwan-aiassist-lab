@@ -13,7 +13,7 @@ wat je tegenkwam.
   beide richtingen verdeeld (een ping ziet de ingestelde waarde), `rate` geldt per richting. Link-down is een echte link-down in de gast (QEMU
   `set_link`). Na het herstarten van een FortiGate-VM is de impairment weg (nieuwe tap); 'Alles herstellen' ruimt alles op.
 - **ISP-router start vóór de FortiGates**: de FortiFlex/FortiCare-licentie-activatie bij de eerste boot heeft DNS en internet nodig.
-- **Eigen ADOM `SDWAN-LAB`** (FortiOS 7.6) op FortiManager. Op FortiAnalyzer staan de FortiGates in **`root`** (de Fabric-ADOM): FortiAI geeft in een eigen ADOM van het type FortiGate 'Fabric ADOM required' (geen groepsstatistieken, geen event handlers). De controller zet de ADOM-modus aan
+- **Eigen ADOM `SDWAN-LAB`** (FortiOS 7.6) op FortiManager. Op FortiAnalyzer is die ADOM van het type **Fabric**: FortiAI geeft in een ADOM van het type FortiGate 'Fabric ADOM required' (geen groepsstatistieken, geen event handlers). De controller zet de ADOM-modus aan
   (`adom-status enable`, kort herstart van de services) en maakt de ADOM aan.
 - **FortiManager is de enige plek van configuratie**: de bootstrap (config drive) zet alleen interfaces, DNS, default routes, logging en de
   central-management-koppeling; FortiManager voegt de devices toe (`dvm/cmd/add/device`) en installeert daarna.

@@ -32,16 +32,22 @@ def mgmt_ip(topo) -> str:
     return topo["fortimanager"]["mgmt_ip"]
 
 
-def ensure_adom(log, rpc: JsonRpc, ad: str, desc: str):
-    """Eigen ADOM (FortiOS 7.6) voor het lab, zodat de devices niet in 'root' staan."""
+FABRIC_PRDS = 4503599627370495      # restricted_prds van een ADOM van het type Fabric (zoals 'root'); alleen daar werkt FortiAI volledig
+
+
+def ensure_adom(log, rpc: JsonRpc, ad: str, desc: str, fabric: bool = False):
+    """Eigen ADOM (FortiOS 7.6) voor het lab, zodat de devices niet in 'root' staan. fabric: type Fabric (FortiAnalyzer)."""
     try:
         if rpc.get(f"/dvmdb/adom/{ad}"):
             log(f"[{desc}] ADOM {ad} bestaat al")
             return
     except RpcError:
         pass
-    rpc.add("/dvmdb/adom", {"name": ad, "desc": "SD-WAN & FortiAI Lab", "os_ver": "7.0", "mr": 6, "state": 1})
-    log(f"[{desc}] ADOM {ad} aangemaakt (FortiOS 7.6)")
+    data = {"name": ad, "desc": "SD-WAN & FortiAI Lab", "os_ver": "7.0", "mr": 6, "state": 1}
+    if fabric:
+        data["restricted_prds"] = FABRIC_PRDS
+    rpc.add("/dvmdb/adom", data)
+    log(f"[{desc}] ADOM {ad} aangemaakt (FortiOS 7.6{', type Fabric' if fabric else ''})")
 
 
 def client(topo) -> JsonRpc:
