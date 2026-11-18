@@ -23,6 +23,9 @@ HERE = Path(__file__).parent
 DOCS = ROOT / "docs"
 
 app = FastAPI(title="SD-WAN & FortiAI Lab", docs_url=None, redoc_url=None, openapi_url=None)
+
+from . import tz as _tz  # noqa: E402
+_tz.use_for_process(load_topology())      # joblog-tijden in de lab-tijdzone
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 PUBLIC_PATHS = ("/login", "/static/")
 

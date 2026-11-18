@@ -15,6 +15,14 @@ def name(topo) -> str:
     return topo["lab"].get("timezone", "Europe/Amsterdam")
 
 
+def use_for_process(topo):
+    """Logtijden van de controller zelf in de lab-tijdzone, ook zonder herstart."""
+    import os
+    import time
+    os.environ["TZ"] = name(topo)
+    time.tzset()
+
+
 def appliance(log, ip: str, label: str, tz: str):
     """FortiManager/FortiAnalyzer: 'set timezone' verwacht een index; zoek 'Amsterdam' in de lijst van de CLI zelf."""
     city = tz.split("/")[-1]
@@ -62,6 +70,7 @@ def apply_all(log, topo):
     """Alles in één keer (taak 'Tijdzone toepassen'): LXC's, FortiManager, FortiAnalyzer en de FortiGates via FortiManager."""
     tz = name(topo)
     problems: list[str] = []
+    use_for_process(topo)
     containers(log, topo)
     try:                                    # de controller zelf (draait als root): joblog-tijden
         import os
