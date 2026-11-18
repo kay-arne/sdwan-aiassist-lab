@@ -457,6 +457,7 @@ def update_labnode(log):
             log(f"labnode bijgewerkt in {n['hostname']}")
     update_state(labnode_tree=updates.labnode_tree())
     apply_traffic_config(log)
+    _start_background(log, topo)
 
 
 def apply_traffic_config(log):

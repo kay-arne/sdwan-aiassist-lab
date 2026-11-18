@@ -505,10 +505,6 @@ def fgt_flow(q: FlowTrace):
         cli.close()
 
 
-@app.post("/api/update-labnode")
-def update_labnode():
-    return _start("Labnode bijwerken", deployer.update_labnode)
-
 
 @app.post("/api/install")
 def fmg_install():
@@ -692,6 +688,20 @@ def scenario_catalog():
             "branches": [s["lan"] for s in topo["sites"] if s["role"] == "spoke"]}
 
 
+@app.on_event("startup")
+def sync_labnode_on_start():
+    """Na een controller-update de labnode (tgctl e.d.) automatisch in de containers bijwerken."""
+    import threading
+
+    def go():
+        try:
+            if updates.version().get("labnode_outdated"):
+                _start("Labnode bijwerken (automatisch)", deployer.update_labnode)
+        except Exception:  # noqa: BLE001
+            pass
+    threading.Timer(15, go).start()
+
+
 @app.get("/api/guides")
 def guides():
     return yaml.safe_load((ROOT / "lab" / "guides.yaml").read_text())["guides"]
@@ -760,20 +770,6 @@ def access():
                    "user": "(wachtwoord)", "password": get_state().get("trafficgen_password", ""),
                    "note": f"Traffic-Gen {n['segment']} (bron {n['ip']}...)"})
     return {"platforms": items, "trafficgen": tg}
-
-
-@app.get("/api/config", response_class=PlainTextResponse)
-def generated_config():
-    out = []
-    for f in sorted(GENERATED.glob("*")):
-        out.append(f"### {f.name}\n{f.read_text()}")
-    if not out:
-        topo = load_topology()
-        out.append("### fmg-overlay-template.json (voorbeeld, nog niet uitgerold)\n"
-                   + json.dumps(fmg.overlay_payload(topo), indent=2))
-        health, services, _ = fmg.sdwan_rules(topo, fmg._members(topo, "branch"))
-        out.append("### fmg-sdwan.json (voorbeeld)\n" + json.dumps({"health-check": health, "service": services}, indent=2))
-    return "\n\n".join(out)
 
 
 DOC_FILES = [("Labgids", DOCS / "lab-guide.md"), ("FortiAI-use cases", DOCS / "fortiai-usecases.md"),

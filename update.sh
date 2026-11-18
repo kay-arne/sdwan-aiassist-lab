@@ -50,7 +50,7 @@ say "Python-dependencies bijwerken..."
 .venv/bin/pip install -q -r controller/requirements.txt
 
 if [[ $OLD != "$NEW" ]] && ! git diff --quiet "$OLD" "$NEW" -- labnode; then
-  say "Let op: de labnode is gewijzigd. Klik in de web UI op 'Labnode bijwerken'."
+  say "De labnode is gewijzigd; de controller werkt de containers na de herstart automatisch bij."
 fi
 
 say "Controller herstarten..."
