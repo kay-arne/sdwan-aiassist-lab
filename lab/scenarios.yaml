@@ -35,8 +35,8 @@ scenarios:
       - {do: sleep, seconds: 120}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show top applications by bytes, past hour.", expect: "Log-analyse met filter; tabel uit FortiAnalyzer-data (SQL achter de schermen)"}
-      - {where: FortiAnalyzer, prompt: "Generate a bar chart of traffic bytes per FortiGate, past hour.", expect: "Staafdiagram in de chat"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of traffic per outgoing interface, past hour.", expect: "Verdeling over port2 (underlay A), port3 (underlay B) en tunnels"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of the top 10 applications by session count, past hour.", expect: "Staafdiagram met applicaties; open eerst Log View (FortiAI werkt op de huidige pagina)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of sessions by outgoing interface, past hour.", expect: "Verdeling over port2 (underlay A), port3 (underlay B) en tunnels"}
       - {where: FortiAnalyzer, prompt: "What can you help me with?", expect: "FortiAI somt zijn taken op: loganalyse, grafieken, event handlers, incidenten"}
     cleanup: []
 
@@ -92,7 +92,7 @@ scenarios:
       - {do: sleep, seconds: 120}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show VPN tunnel down events, past 10 minutes, group by device.", expect: "Per spoke de HUB1-tunnels (6 in totaal)"}
-      - {where: FortiAnalyzer, prompt: "Generate a bar chart of traffic bytes per outgoing interface, past 30 minutes.", expect: "Verkeer is naar de tunnels van HUB2 verschoven"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of sessions by outgoing interface, past 30 minutes.", expect: "Verkeer is naar de tunnels van HUB2 verschoven"}
       - {where: FortiManager, prompt: "Check the VPN tunnel status.", expect: "VPN Assistant: kies een spoke; HUB1-tunnels down, HUB2-tunnels up"}
     cleanup:
       - {do: vm, site: hub-ams, op: start}
@@ -109,7 +109,7 @@ scenarios:
       - {do: sleep, seconds: 180}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show top 5 applications by bytes for FGT-BR3, past hour.", expect: "Netflix / streaming bovenaan"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of bytes per outgoing interface for FGT-BR3, past hour.", expect: "Streaming op port3 (underlay B), conform rule STREAMING"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of sessions by outgoing interface for FGT-BR3, past hour.", expect: "Streaming op port3 (underlay B), conform rule STREAMING"}
       - {where: FortiManager, prompt: "Create a CLI script for an SD-WAN service rule that sends Spotify traffic to the lowest-cost member.", expect: "Script Assistant: CLI; Save Script of Save CLI Template; review voor uitvoeren"}
     cleanup:
       - {do: traffic_stop}
@@ -146,7 +146,7 @@ scenarios:
       - {do: iperf, site: br1, to: srv-ams, seconds: 60, streams: 4}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show top destinations by bytes for FGT-BR1, past 15 minutes.", expect: "10.21.0.10 (iperf3, poort 5201) bovenaan"}
-      - {where: FortiAnalyzer, prompt: "Generate a bar chart of bytes per destination port for FGT-BR1, past 15 minutes.", expect: "Poort 5201 domineert"}
+      - {where: FortiAnalyzer, prompt: "Show the 5 largest sessions by bytes sent for FGT-BR1, past 15 minutes.", expect: "De iperf3-sessie (poort 5201) staat bovenaan"}
     cleanup:
       - {do: traffic_stop}
 
@@ -174,8 +174,8 @@ scenarios:
       - {do: traffic, site: all, preset: normal}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Generate a bar chart of traffic bytes per FortiGate, past 24 hours.", expect: "Management-grafiek; download via Download Chat History (HTML/PNG)"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of top applications by bytes, past 24 hours.", expect: "Applicatie-verdeling"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of the top 10 applications by session count, past 24 hours.", expect: "Management-grafiek; download via Download Chat History (HTML/PNG)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of the top 10 source IPs by session count, past 24 hours.", expect: "Verdeling over de Traffic-Gen-bronnen"}
       - {where: FortiAnalyzer, prompt: "Generate report: SD-WAN for FGT-BR1, FGT-BR2, FGT-BR3, past 24 hours.", expect: "Bestaande sjablonen; een vage vraag (bijv. PCI-rapport) kost extra tokens"}
     cleanup:
       - {do: traffic_stop}

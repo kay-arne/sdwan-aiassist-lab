@@ -32,6 +32,10 @@ guides:
       - tip: >
           FortiAI werkt alleen met een lokale administrator, een FortiAI-licentie (maandelijks tokenbudget, gedeeld) en uitgaand internet vanaf port1.
           Houd prompts kort en vraag met tijdvenster; start na ongeveer 10 vragen een nieuwe thread.
+      - tip: >
+          **Eerst naar de juiste pagina.** FortiAI in FortiAnalyzer werkt in de context van de huidige pagina: open voor logvragen en grafieken eerst
+          **Log View > Traffic** (of Event Monitor), anders vraagt FortiAI om je door te sturen. Groepeer grafieken op iets dat betekenis heeft
+          (applicatie, bron-IP, interface); per FortiGate toont FortiAI serienummers in plaats van namen.
       - text: "**Naslag**"
       - docs: true
 
