@@ -545,20 +545,29 @@ def build_hub_to_hub(log, topo, rpc: JsonRpc, warn):
             except RpcError as e:
                 warn(f"hub-naar-hub {dev} {ln['name']}: {e}")
         # de tunnel-IP's gaan via de CLI (net als bij de overlay-tunnels): FortiManager installeert ze niet vanuit de device-database
+        # de tunnel-IP's gaan via de CLI (net als bij de overlay-tunnels): FortiManager installeert ze niet vanuit de device-database
         script = ["config system interface"]
         for ln in links:
             script += [f'  edit "{ln["name"]}"', f"    set ip {ln['ip']} 255.255.255.255",
                        f"    set remote-ip {ln['remote_ip']} 255.255.255.255", "    set allowaccess ping", "  next"]
-        script += ["end", "config router bgp", "  config neighbor"]
+        # Routes die een hub van de andere hub leert krijgen een community en worden niet naar de spokes doorgegeven: de spokes
+        # leren alles al rechtstreeks van beide hubs, en een doorgegeven route had het H2H-adres als (onbereikbare) next-hop.
+        script += ["end",
+                   "config router community-list", '  edit "H2H-LEARNED"', "    config rule", "      edit 1",
+                   "        set action permit", '        set match "65000:100"', "      next", "    end", "  next", "end",
+                   "config router route-map", '  edit "H2H-IN"', "    config rule", "      edit 1",
+                   '        set set-community "65000:100"', "      next", "    end", "  next",
+                   '  edit "NO-H2H-OUT"', "    config rule", "      edit 1", "        set action deny",
+                   '        set match-community "H2H-LEARNED"', "      next", "      edit 2", "        set action permit",
+                   "      next", "    end", "  next", "end",
+                   "config router bgp", "  config neighbor"]
         for ln in links:
             script += [f'    edit "{ln["remote_ip"]}"', f"      set remote-as {topo['sdwan']['as_number']}",
-                       "      set next-hop-self enable", "      set next-hop-self-rr enable", "      set soft-reconfiguration enable",
-                       f'      set update-source "{ln["name"]}"', "    next"]
+                       "      set next-hop-self enable", "      set soft-reconfiguration enable",
+                       '      set route-map-in "H2H-IN"', f'      set update-source "{ln["name"]}"', "    next"]
         script += ["  end", "  config neighbor-group"]
-        # routes van de andere hub (via de reflectie) met de eigen hub als next-hop aan de spokes geven; anders wijst de
-        # next-hop naar het H2H-adres van de andere hub en is dat voor de spokes alleen via de underlay bereikbaar
         for u in topo["sdwan"]["underlays"]:
-            script += [f'    edit "VPN{u["id"]}"', "      set next-hop-self-rr enable", "    next"]
+            script += [f'    edit "VPN{u["id"]}"', '      set route-map-out "NO-H2H-OUT"', "    next"]
         script += ["  end", "end"]
         name = f"{base}_HUB{h}_H2H_BGP"
         try:
