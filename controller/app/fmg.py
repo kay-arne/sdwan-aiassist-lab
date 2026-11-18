@@ -195,7 +195,7 @@ def overlay_payload(topo) -> dict:
     hub_list = hubs(topo)
     base = {"as": sd["as_number"], "authmethod": sd["authmethod"], "topology": sd["topology"],
             "loopback-ip": _mask(sd["loopback_ip"]), "overlay-network": _mask(sd["overlay_network"]),
-            "route_reflection": "disable", "advpn": sd["advpn"], "dynamic_bgp": "disable",
+            "route_reflection": "enable", "advpn": sd["advpn"], "dynamic_bgp": "disable",
             "auto-branch-id-assignment": "enable", "hub-number": len(hub_list),
             "sdwan_members": "enable", "sdwan_health_check": "enable"}   # laat de orchestratie ook SD-WAN-templates maken
     underlays = [{"id": u["id"], "interface": u["port"], "cost": 0, "private-link": "disable",
@@ -422,6 +422,10 @@ def _add_service(log, warn, rpc: JsonRpc, base: str, svc: dict, tname: str):
         warn(f"SD-WAN rule {svc['name']}: {e}")
 
 
+# De orchestratie laat 'redistribute connected' uit staan: zonder dit adverteren hubs en branches hun LAN niet.
+_REDISTRIBUTE = ["config router bgp", '  config redistribute "connected"', "    set status enable", "  end", "end"]
+
+
 def _hub_tunnel_script(topo, h: int) -> str:
     """CLI voor de tunnelinterfaces van hub h. De overlay-orchestratie zet het IP van de hub-tunnelinterface niet
     (device-DB: ip 0.0.0.0), terwijl de branches de BGP-buur op <pool-einde>-2 verwachten (bijv. 10.10.31.253 voor
@@ -435,6 +439,7 @@ def _hub_tunnel_script(topo, h: int) -> str:
         lines += [f'  edit "VPN{u["id"]}"', f"    set ip {ip} 255.255.255.255",
                   f"    set remote-ip {remote} 255.255.224.0", "  next"]
     lines.append("end")
+    lines += _REDISTRIBUTE
     return "\n".join(lines) + "\n"
 
 
@@ -456,6 +461,20 @@ def build_hub_tunnel_ips(log, topo, rpc: JsonRpc, warn):
             log(f"[FortiManager] hub {h}: tunnel-IP's ({name}) toegevoegd aan de CLI-groep")
         except (RpcError, AttributeError, TypeError) as e:
             warn(f"hub {h} tunnel-IP's: {e}")
+    name = f"{base}_BRANCH_REDISTRIBUTE"
+    try:
+        _put_row(rpc, f"/pm/config/adom/{ad}/obj/cli/template", name,
+                 {"name": name, "type": "cli", "option": "sdwan-overlay", "script": "\n".join(_REDISTRIBUTE) + "\n",
+                  "description": "SD-WAN & FortiAI Lab: LAN's van de branches adverteren"})
+        grp_url = f"/pm/config/adom/{ad}/obj/cli/template-group/{base}_BRANCH_CLIGRP"
+        grp = rpc.get(grp_url)
+        grp = grp[0] if isinstance(grp, list) else grp
+        members = list(grp.get("member") or [])
+        if name not in members:
+            rpc.update(grp_url, {"member": members + [name]})
+        log(f"[FortiManager] branches: BGP-redistribute ({name}) toegevoegd aan de CLI-groep")
+    except (RpcError, AttributeError, TypeError) as e:
+        warn(f"branch BGP-redistribute: {e}")
 
 
 def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
