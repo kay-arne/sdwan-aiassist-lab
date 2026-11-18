@@ -131,7 +131,6 @@ scenarios:
       - {where: FortiAnalyzer, prompt: "Create an event handler for that IP.", expect: "Event handler met naam en regelsamenvatting"}
       - {where: FortiAnalyzer, prompt: "List incidents created in the past 24 hours.", expect: "Incidenten uit event handlers (kan leeg zijn); vraag door naar details en affected endpoints"}
       - {where: FortiAnalyzer, prompt: "Produce an incident report for incident <nummer>.", expect: "Rapport met download-icoon in het antwoord"}
-      - {where: FortiAnalyzer, prompt: "Quarantine 10.12.0.50.", expect: "Isolatie via IP; werkt alleen met een gekoppelde connector, laat hem bevestigen. Alleen tonen als de koppeling er is"}
     cleanup:
       - {do: traffic_stop}
 
@@ -183,25 +182,20 @@ scenarios:
   - id: faz-demo
     title: "10. Demo FortiAnalyzer: incident onderzoeken en reageren"
     story: >
-      Volgt de officiële FortiAnalyzer-AI-demoflow: een incident ophalen, de verdachte publieke IP controleren, kijken welke endpoints
-      geraakt zijn, doorklikken naar Threat Hunting en Log View, reageren, een event handler en een rapport maken, en visualiseren.
+      Een incident ophalen, de verdachte publieke IP controleren, kijken welke endpoints geraakt zijn, doorklikken naar Threat Hunting
+      en Log View, het incident afronden, een event handler en een rapport maken, en visualiseren.
     setup:
       - {do: clear}
       - {do: traffic, site: br2, preset: security}
       - {do: sleep, seconds: 240}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Please help fetch the latest incident.", expect: "Incidentdetails met het getroffen IP (er moet een incident bestaan: maak er een in Incidents & Events vanuit een event)"}
-      - {where: FortiAnalyzer, prompt: "Show me the running processes on <IP van het incident>.", expect: "Alleen met een FortiClient EMS-connector (SOAR-playbook); in dit lab niet aanwezig: laat deze stap weg of leg het uit"}
       - {where: FortiAnalyzer, prompt: "Check the reputation of <publiek IP uit het incident>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); vraag daarna om mitigatie-advies"}
       - {where: FortiAnalyzer, prompt: "Check if more endpoints are affected.", expect: "Log-analyse: andere bronnen die naar dezelfde bestemming praten (hier de Traffic-Gen-bronnen 10.12.0.5x)"}
       - {where: FortiAnalyzer, prompt: "Open Threat Hunting.", expect: "FortiAI opent de pagina zonder dat je het gesprek verlaat"}
-      - {where: FortiAnalyzer, prompt: "Search for abnormal login activities.", expect: "Alleen zinvol als er login-logs zijn; in dit lab meestal niet, laat weg"}
       - {where: FortiAnalyzer, prompt: "Open Log View.", expect: "FortiAI opent Log View vanuit het gesprek"}
-      - {where: FortiAnalyzer, prompt: "Quarantine <IP van het incident>.", expect: "Quarantaine via EMS-playbook; zonder connector niet beschikbaar"}
-      - {where: FortiAnalyzer, prompt: "Block the malicious IP from FortiManager.", expect: "Vraagt de FortiManager-connector; alleen met een gekoppelde FortiManager in FortiAnalyzer, anders weglaten"}
       - {where: FortiAnalyzer, prompt: "Update the incident and hand off.", expect: "Notitie en status aan het incident; ruimt de overdracht op"}
       - {where: FortiAnalyzer, prompt: "Generate an incident report for <incidentnummer>.", expect: "Rapport met download-icoon in het antwoord"}
-      - {where: FortiAnalyzer, prompt: "Send the report to the CISO.", expect: "Vereist een output-e-mailprofiel `ciso`; anders overslaan"}
       - {where: FortiAnalyzer, prompt: "Create an event handler connecting to <publiek IP>.", expect: "FortiAI stuurt je eerst naar Log View, past een filter toe en maakt daarna de event handler (naam en regelsamenvatting in de chat)"}
       - {where: FortiAnalyzer, prompt: "Can FortiAnalyzer generate a visual on threats?", expect: "FortiAI legt uit wat het kan renderen"}
       - {where: FortiAnalyzer, prompt: "What type of charts can be rendered?", expect: "Antwoord: taartdiagram en staafdiagram (ook gegroepeerd/gestapeld)"}
@@ -212,8 +206,8 @@ scenarios:
   - id: fmg-demo
     title: "11. Demo FortiManager: VPN Assistant, Script Assistant en IoT"
     story: >
-      Volgt de officiële FortiManager-AI-demoflow: eerst IoT-voorwaarden, dan de VPN Assistant (configureren, tunnelstatus, diagnose),
-      dan de Script Assistant met meta variables en opslaan als CLI-template.
+      Eerst de IoT-voorwaarden, dan de VPN Assistant (configureren, tunnelstatus, diagnose), dan de Script Assistant met meta variables
+      en opslaan als CLI-template.
     setup:
       - {do: clear}
     fortiai:

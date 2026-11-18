@@ -9,8 +9,8 @@ tokenbudget nodig (gedeeld door alle gebruikers), internet vanaf het beheer-poor
 ## Wat FortiAI wel en niet kan
 
 **FortiAnalyzer**: loganalyse en filteren (prompts worden vertaald naar SQL), reputatiecheck van IP's (FortiGuard, VirusTotal), taart- en
-staafdiagrammen, event handlers aanmaken, incidenten opvragen/bijwerken/rapporteren (ook compromised hosts), proces-info van endpoints en
-endpoints quarantaineren via IP (die laatste twee vereisen een endpoint-/connectorkoppeling die dit lab niet heeft).
+staafdiagrammen, event handlers aanmaken, incidenten opvragen/bijwerken/rapporteren (ook compromised hosts). FortiAI kan ook endpoints quarantaineren en proces-info ophalen, maar
+dat vereist een EMS-/connectorkoppeling en is niet in dit lab opgenomen.
 
 **FortiManager**: *Script Assistant* (CLI- en Jinja-scripts, opslaan als script of CLI-template), *VPN Assistant* (VPN-scripts op basis van een
 topologie-afbeelding of geselecteerde apparaten; tunnelstatus controleren en diagnosticeren) en *IoT Device Analysis* (alleen relevant met
@@ -28,7 +28,6 @@ FortiManager-template of wijzigingshistorie; die horen bij de normale GUI. De sc
 | FortiAnalyzer | Event handler aanmaken | 3, 6 | "Create an event handler for IPsec tunnel down on FGT-BR2." |
 | FortiAnalyzer | Reputatiecheck | 6 | "Perform a security reputation check for <IP>." |
 | FortiAnalyzer | Incidenten en rapport | 6 | "List incidents created in the past 24 hours." |
-| FortiAnalyzer | Quarantaine | 6 | "Quarantine 10.12.0.50." (alleen met koppeling) |
 | FortiManager | Script Assistant | 5, 8 | "Create firewall addresses for 10.2.2.1 and awesome-service.com." |
 | FortiManager | VPN Assistant: script | 8 | "Help me configure site-to-site VPN." |
 | FortiManager | VPN Assistant: status/diagnose | 2, 3, 4, 8 | "Check the VPN tunnel status." / "Diagnose the VPN tunnel." |
@@ -54,7 +53,7 @@ streaming en social, en een klein constant deel ongewenst verkeer (webfilter-cat
 vanaf het begin een gevarieerde logset op. Scenario's vervangen het verkeer tijdelijk; hun opruimstap en de knop "Verkeer stoppen" in de
 Cockpit werken zo: een scenario eindigt met het terugzetten van het achtergrondverkeer, de knop stopt alles.
 
-## Officiële demoflows
+## Demoflows
 
-De Labguides bevatten twee hoofdstukken die de officiële Product Management-demo-guides volgen (Q3 2024): **10. Demo FortiAnalyzer** (incident ophalen, reputatiecheck, getroffen endpoints, Threat Hunting en Log View, quarantaine, IP blokkeren, rapport, event handler, grafieken)
-en **11. Demo FortiManager** (IoT-voorwaarden, VPN Assistant, tunnelstatus en diagnose, Script Assistant met meta variables). Stappen die een FortiClient EMS-connector, FortiManager-koppeling, IoT-detectie of login-logs vereisen, zijn in het lab niet uitvoerbaar en staan in de guide als zodanig vermeld.
+De Labguides bevatten twee hoofdstukken die de officiële demoflows van Product Management volgen, beperkt tot wat het lab kan: **10. Demo FortiAnalyzer** (incident, reputatiecheck, getroffen endpoints, Threat Hunting en Log View, rapport, event handler, grafieken)
+en **11. Demo FortiManager** (IoT-voorwaarden, VPN Assistant, tunnelstatus en diagnose, Script Assistant met meta variables).
