@@ -130,6 +130,26 @@ def authorize_devices(log, topo, warn):
     rpc.logout()
 
 
+def set_locations(log, topo, warn):
+    """Breedte- en lengtegraad per FortiGate in FortiAnalyzer (kaartweergaves)."""
+    from .jsonrpc import RpcError
+    rpc = client(topo)
+    try:
+        ad = topo["fortianalyzer"]["adom"]
+        n = 0
+        for s in topo["sites"]:
+            if s.get("lat") is None:
+                continue
+            try:
+                rpc.update(f"/dvmdb/adom/{ad}/device/{s['fgt_name']}", {"latitude": str(s["lat"]), "longitude": str(s["lon"])})
+                n += 1
+            except RpcError as e:
+                warn(f"locatie {s['fgt_name']} (FortiAnalyzer): {e}")
+        log(f"[FortiAnalyzer] locaties gezet op {n} FortiGates")
+    finally:
+        rpc.logout()
+
+
 def provision(log, topo) -> list[str]:
     problems: list[str] = []
 
@@ -138,6 +158,7 @@ def provision(log, topo) -> list[str]:
         log(f"⚠ {msg}")
 
     authorize_devices(log, topo, warn)
+    set_locations(log, topo, warn)
     update_state(faz_problems=problems)
     return problems
 
