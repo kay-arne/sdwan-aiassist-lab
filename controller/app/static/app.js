@@ -333,7 +333,26 @@ async function loadGuides() {
   }));
   if ($("#g-docs")) loadDocs();
   const st = $("#btn-ai-status"); if (st) st.onclick = aiStatus;
+  watchTraffic();
 }
+let trafficTimer = null;
+async function loadTraffic() {
+  const box = $("#traffic-box");
+  if (!box || !$("#tab-guides").classList.contains("active")) { clearInterval(trafficTimer); trafficTimer = null; return; }
+  let rows;
+  try { rows = await api("/api/traffic/status"); } catch (e) { box.innerHTML = `<b>Verkeer</b><span class="warn">${esc(e.message)}</span>`; return; }
+  const fmt = (n) => (n || 0).toLocaleString("nl-NL");
+  const ago = (r) => { const s = Math.max(0, Math.round((r.now || 0) - (r.started || 0))); return !r.started ? "" : s < 90 ? `${s} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} u`; };
+  const allOn = rows.length && rows.every((r) => r.running);
+  box.innerHTML = `<b>Verkeer</b> <span class="tag ${allOn ? "ok" : "warn"}">${allOn ? "draait" : "niet overal actief"}</span>` + rows.map((r) => {
+    const on = r.running, tag = r.state !== "running" ? "container uit" : on ? "actief" : "gestopt";
+    return `<div class="trow"><span class="dot ${on ? "on" : "off"}"></span><div><b>${esc(r.name)}</b> <small>${tag}${on ? " · " + ago(r) : ""}</small>
+      ${r.requests !== undefined ? `<div class="tstat">${fmt(r.requests)} verzoeken · ${fmt(r.blocked)} geblokkeerd · ${fmt(r.errors)} fouten · ${fmt(r.mb)} MB</div>` : `<div class="tstat">${esc(r.detail || "")}</div>`}</div></div>`;
+  }).join("") + (allOn ? "" : `<div class="gbtns"><button class="primary small" id="tb-start">Achtergrondverkeer starten</button></div>`);
+  const b = $("#tb-start"); if (b) b.onclick = () => act({ do: "traffic", site: "all", preset: "background" });
+}
+function watchTraffic() { loadTraffic(); if (!trafficTimer) trafficTimer = setInterval(loadTraffic, 15000); }
+
 async function showHealth(el, dev) {
   try {
     const r = await api("/api/sdwan/" + dev);

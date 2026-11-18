@@ -431,6 +431,30 @@ def destroy(d: Destroy):
     return _start("Lab afbreken", deployer.destroy_all, d.template, d.network)
 
 
+@app.get("/api/traffic/status")
+def traffic_status():
+    """Draait Traffic-Gen in de branches, en hoeveel verkeer is er sinds de start gegenereerd?"""
+    topo = load_topology()
+    h = host()
+    out = []
+    for n in nodes_by_role(topo, "trafficgen"):
+        row = {"name": n["name"], "hostname": n["hostname"], "site": n.get("segment"), "state": h.status(n["vmid"])}
+        if row["state"] == "running":
+            rc, txt = h.pct_exec(n["vmid"], "tgctl state", timeout=40)
+            try:
+                st = json.loads(txt[txt.index("{"):txt.rindex("}") + 1])
+                t = st.get("totals", {})
+                row.update({"running": bool(st.get("running")), "started": st.get("started"), "now": st.get("now"),
+                            "intensity": st.get("intensity"), "sources": st.get("sources"),
+                            "requests": t.get("requests", 0), "ok": t.get("ok", 0), "blocked": t.get("blocked", 0),
+                            "missed": t.get("missed", 0), "errors": t.get("error", 0),
+                            "mb": round(t.get("bytes", 0) / 1e6, 1)})
+            except ValueError:
+                row.update({"running": False, "detail": "geen antwoord van Traffic-Gen"})
+        out.append(row)
+    return out
+
+
 @app.post("/api/timezone")
 def apply_timezone():
     from . import tz

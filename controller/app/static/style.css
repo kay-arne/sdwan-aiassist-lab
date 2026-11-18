@@ -389,3 +389,12 @@ button.small { padding: 2px 10px; font-size: 12px; }
 @media (max-width: 800px) { .guides { grid-template-columns: 1fr; } .guide-nav { position: static; flex-direction: row; flex-wrap: wrap; } }
 .access.pad { padding: 12px; }
 .guide-nav .access-btn { border-style: dashed; margin-bottom: 6px; }
+.guide-side { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 12px; }
+.guide-side .guide-nav { position: static; }
+.traffic-box { background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.trow { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+.tstat { color: var(--muted); font-size: 12px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--muted); }
+.dot.on { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+.dot.off { background: #d9534f; }
+@media (max-width: 800px) { .guide-side { position: static; } }
