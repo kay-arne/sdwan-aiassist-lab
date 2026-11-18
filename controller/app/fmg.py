@@ -286,68 +286,161 @@ def build_overlay(log, topo, rpc: JsonRpc, warn):
 # --------------------------------------------------------------------------------------
 # SD-WAN: SLA, rules, firewall policy
 # --------------------------------------------------------------------------------------
-def sdwan_template_name(topo) -> str:
-    return topo["sdwan"]["template"] + SDWAN_TEMPLATE_SUFFIX
+def sdwan_template_names(topo) -> tuple[str, str]:
+    base = topo["sdwan"]["template"]
+    return f"{base}-SDWAN-HUB", f"{base}-SDWAN-BRANCH"
 
 
-def find_sdwan_template(rpc: JsonRpc, topo) -> str | None:
-    ad = adom(topo)
-    try:
-        profs = rpc.get(f"/pm/wanprof/adom/{ad}") or []
-    except RpcError:
-        return None
-    names = [p["name"] for p in profs]
-    want = topo["sdwan"]["template"]
-    for n in names:
-        if n == sdwan_template_name(topo) or want.lower() in n.lower():
-            return n
-    return names[0] if names else None
+def _members(topo, role: str) -> list[dict]:
+    """SD-WAN-members per rol. Namen volgen uit de overlay-orchestratie: op een hub heten de tunnels VPN<n>,
+    op een branch HUB<h>-VPN<n> (n = underlay-id); de underlay-poorten staan in topology.yaml."""
+    sd, out = topo["sdwan"], []
+    for u in sd["underlays"]:
+        out.append({"interface": u["port"], "zone": sd["zones"]["underlay"], "underlay": u["id"]})
+    if role == "hub":
+        for u in sd["underlays"]:
+            out.append({"interface": f"VPN{u['id']}", "zone": sd["zones"]["overlay"]})
+    else:
+        for h in range(1, len(hubs(topo)) + 1):
+            for u in sd["underlays"]:
+                out.append({"interface": f"HUB{h}-VPN{u['id']}", "zone": sd["zones"]["overlay"]})
+    for i, m in enumerate(out, 1):
+        m["seq-num"] = i
+    return out
 
 
-def sdwan_rules(topo) -> tuple[list[dict], list[dict]]:
-    """(health-checks, services) voor de SD-WAN template."""
+def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    """(health-checks, services, adresobjecten) voor de branch-template."""
     sd = topo["sdwan"]
+    z_over, z_under = sd["zones"]["overlay"], sd["zones"]["underlay"]
     hc = sd["health_check"]
     sla = hc["sla"]
     health = [{"name": hc["name"], "server": [hc["server"]], "protocol": hc["protocol"],
                "interval": 1000, "failtime": 3, "recoverytime": 5,
                "sla": [{"id": 1, "latency-threshold": sla["latency_ms"], "jitter-threshold": sla["jitter_ms"],
                         "packetloss-threshold": sla["loss_pct"]}]}]
-    services = []
+    addresses, services = [], []
+    by_underlay = {m["underlay"]: m["seq-num"] for m in members if m.get("underlay")}
+    last_u = max(by_underlay) if by_underlay else 1
     for i, r in enumerate(sd["rules"], 1):
-        svc = {"id": i, "name": r["name"], "mode": "sla" if r["mode"] == "sla" else "priority",
-               "health-check": [hc["name"]] if r["mode"] == "sla" else [],
-               "sla": [{"health-check": hc["name"], "id": [1]}] if r["mode"] == "sla" else []}
+        svc = {"id": i, "name": r["name"]}
+        if r["mode"] == "sla":
+            first = z_over if (r.get("dst") or "VOICE" in r["name"]) else z_under
+            order = [first] + [z for z in (z_over, z_under) if z != first]
+            if r.get("dst"):
+                order = [z_over]
+            svc.update({"mode": "sla", "priority-zone": order, "health-check": [hc["name"]],
+                        "sla": [{"health-check": hc["name"], "id": [1]}]})
+        else:       # 'cost': goedkoopste link (laatste underlay), nooit over de overlay
+            svc.update({"mode": "priority", "priority-members": [by_underlay[last_u]]})
         if r.get("isdb"):
             svc["internet-service"] = "enable"
             svc["internet-service-name"] = r["isdb"]
         if r.get("dst"):
-            svc["dst"] = r["dst"]
+            names = []
+            for cidr in r["dst"]:
+                import ipaddress
+                n = ipaddress.ip_network(cidr)
+                nm = "DC-" + str(n.network_address) + "_" + str(n.prefixlen)
+                addresses.append({"name": nm, "type": "ipmask", "subnet": f"{n.network_address} {n.netmask}"})
+                names.append(nm)
+            svc["dst"] = names
         services.append(svc)
-    return health, services
+    return health, services, addresses
 
 
-def patch_sdwan_template(log, topo, rpc: JsonRpc, warn):
-    ad = adom(topo)
-    prof = find_sdwan_template(rpc, topo)
-    health, services = sdwan_rules(topo)
-    (GENERATED / "fmg-sdwan-rules.json").write_text(json.dumps({"health-check": health, "service": services}, indent=2))
-    if not prof:
-        warn("geen SD-WAN template gevonden na de orchestratie; health-check en rules niet gezet")
-        return
-    base = f"/pm/config/adom/{ad}/wanprof/{prof}/system/sdwan"
-    for hc in health:
+def _wanprof_oid(rpc: JsonRpc, ad: str, name: str, desc: str) -> int | None:
+    try:
+        rpc.add(f"/pm/wanprof/adom/{ad}", {"name": name, "type": "wanprof", "description": desc})
+    except RpcError as e:
+        if e.code != -2:
+            raise
+    for p in rpc.get(f"/pm/wanprof/adom/{ad}") or []:
+        if p["name"] == name:
+            return p.get("oid")
+    return None
+
+
+def _put_row(rpc: JsonRpc, table_url: str, key, row: dict):
+    try:
+        rpc.add(table_url, row)
+    except RpcError as e:
+        if e.code != -2:
+            raise
+        rpc.set(f"{table_url}/{key}", row)
+
+
+def _attach(rpc: JsonRpc, ad: str, group: str, oid: int, tname: str):
+    """SD-WAN-template (type 5) in de template-groep van de overlay opnemen; oude lab-SD-WAN-templates eruit."""
+    url = f"/pm/tmplgrp/adom/{ad}/{group}"
+    g = rpc.get(url)
+    g = g[0] if isinstance(g, list) else g
+    setting = dict(g["template group setting"])
+    cur = [x for x in setting.get("templates", []) if not x.startswith("5-")]
+    setting["templates"] = cur + [f"5-{oid}__{tname}"]
+    rpc.update(url, {"template group setting": setting})
+
+
+def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
+    """SD-WAN-templates voor hubs en branches: zones, members (underlay + overlay), health-check en rules,
+    opgenomen in de template-groepen die de overlay-orchestratie heeft gemaakt."""
+    ad, sd = adom(topo), topo["sdwan"]
+    hub_t, branch_t = sdwan_template_names(topo)
+    ok = True
+    spec = {}
+    for role, tname in (("hub", hub_t), ("branch", branch_t)):
+        members = _members(topo, role)
+        base = f"/pm/config/adom/{ad}/wanprof/{tname}/system/sdwan"
         try:
-            rpc.upsert(f"{base}/health-check", hc)
-            log(f"[FortiManager] SD-WAN health-check {hc['name']} (SLA) in template {prof}")
+            oid = _wanprof_oid(rpc, ad, tname, f"SD-WAN & FortiAI Lab: {role}s")
+            rpc.update(base, {"status": "enable"})
+            for z in (sd["zones"]["underlay"], sd["zones"]["overlay"]):
+                _put_row(rpc, f"{base}/zone", z, {"name": z})
+            for m in members:
+                row = {"seq-num": m["seq-num"], "interface": [m["interface"]], "zone": [m["zone"]], "cost": 0}
+                _put_row(rpc, f"{base}/members", m["seq-num"], row)
+            log(f"[FortiManager] SD-WAN-template {tname}: zones en {len(members)} members")
         except RpcError as e:
-            warn(f"health-check {hc['name']}: {e}")
-    for svc in services:
+            warn(f"SD-WAN-template {tname}: {e}")
+            ok = False
+            continue
+        spec[tname] = {"members": members}
+        if role == "branch":
+            health, services, addresses = sdwan_rules(topo, members)
+            spec[tname].update({"health-check": health, "service": services, "addresses": addresses})
+            for ad_obj in addresses:
+                try:
+                    _put_row(rpc, f"/pm/config/adom/{ad}/obj/firewall/address", ad_obj["name"], ad_obj)
+                except RpcError as e:
+                    warn(f"adresobject {ad_obj['name']}: {e}")
+            for hc in health:
+                try:
+                    _put_row(rpc, f"{base}/health-check", hc["name"], hc)
+                    log(f"[FortiManager] SD-WAN health-check {hc['name']} (SLA) in {tname}")
+                except RpcError as e:
+                    warn(f"health-check {hc['name']}: {e}")
+            for svc in services:
+                try:
+                    _put_row(rpc, f"{base}/service", svc["id"], svc)
+                    log(f"[FortiManager] SD-WAN rule {svc['name']} in {tname}")
+                except RpcError as e:     # één onbekende ISDB-naam mag de rest niet tegenhouden
+                    warn(f"SD-WAN rule {svc['name']}: {e}")
+        groups = ([f"{sd['template']}_HUB{i}" for i in range(1, len(hubs(topo)) + 1)] if role == "hub"
+                  else [f"{sd['template']}_BRANCH"])
+        for grp in groups:
+            try:
+                _attach(rpc, ad, grp, oid, tname)
+                log(f"[FortiManager] {tname} toegevoegd aan template-groep {grp}")
+            except (RpcError, KeyError, TypeError) as e:
+                warn(f"template-groep {grp}: {e}")
+                ok = False
+    (GENERATED / "fmg-sdwan.json").write_text(json.dumps(spec, indent=2))
+    for legacy in ("LAB-SDWAN", "LAB-SDWAN-BRANCH"):      # restanten van handmatige proefopbouw
         try:
-            rpc.upsert(f"{base}/service", svc)
-            log(f"[FortiManager] SD-WAN rule {svc['name']} in template {prof}")
-        except RpcError as e:         # één onbekende ISDB-naam mag de rest niet tegenhouden
-            warn(f"SD-WAN rule {svc['name']}: {e}")
+            rpc.delete(f"/pm/wanprof/adom/{ad}/{legacy}")
+        except RpcError:
+            pass
+    return ok
 
 
 def policy_package(log, topo, rpc: JsonRpc, warn, zones: dict):
@@ -395,32 +488,20 @@ def policy_package(log, topo, rpc: JsonRpc, warn, zones: dict):
 
 
 def discover_zones(rpc: JsonRpc, topo) -> dict:
-    zones = {"overlay": topo["sdwan"]["zones"]["overlay"], "underlay": topo["sdwan"]["zones"]["underlay"]}
-    prof = find_sdwan_template(rpc, topo)
-    if not prof:
-        return zones
-    try:
-        found = [z["name"] for z in rpc.get(f"/pm/config/adom/{adom(topo)}/wanprof/{prof}/system/sdwan/zone") or []]
-    except RpcError:
-        return zones
-    for z in found:
-        low = z.lower()
-        if "overlay" in low or "vpn" in low:
-            zones["overlay"] = z
-        elif "under" in low or low in ("virtual-wan-link", "wan"):
-            zones["underlay"] = z
-    return zones
+    return {"overlay": topo["sdwan"]["zones"]["overlay"], "underlay": topo["sdwan"]["zones"]["underlay"]}
 
 
-def install(log, topo, rpc: JsonRpc, warn, devices: list[str] | None = None):
-    """Device-settings (templates) en policy package installeren."""
+def install(log, topo, rpc: JsonRpc, warn, devices: list[str] | None = None, only: str | None = None):
+    """Device-settings (templates) en/of policy package installeren (only: 'device' of 'package')."""
     ad = adom(topo)
     scope = [{"name": n, "vdom": "root"} for n in (devices or device_names(topo))]
-    for what, url, data in (
-            ("device settings (templates)", "/securityconsole/install/device",
+    for key, what, url, data in (
+            ("device", "device settings (templates)", "/securityconsole/install/device",
              {"adom": ad, "scope": scope, "flags": ["none"]}),
-            ("policy package", "/securityconsole/install/package",
+            ("package", "policy package", "/securityconsole/install/package",
              {"adom": ad, "pkg": PKG, "scope": scope, "flags": ["none"]})):
+        if only and only != key:
+            continue
         try:
             res = rpc.exec(url, data)
             if isinstance(res, dict) and res.get("task"):
@@ -445,11 +526,13 @@ def provision(log, topo, devices=None) -> list[str]:
     ensure_adom(log, rpc, adom(topo), "FortiManager")
     add_devices(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
-        patch_sdwan_template(log, topo, rpc, warn)
+        build_sdwan(log, topo, rpc, warn)
+        # eerst de device-settings (maakt de zones op de FortiGates), daarna pas objecten en policies
+        install(log, topo, rpc, warn, devices, only="device")
     zones = discover_zones(rpc, topo)
     log(f"[FortiManager] zones: overlay={zones['overlay']}, underlay={zones['underlay']}")
     policy_package(log, topo, rpc, warn, zones)
-    install(log, topo, rpc, warn, devices)
+    install(log, topo, rpc, warn, devices, only="package")
     update_state(fmg_problems=problems, fmg_provisioned=not problems)
     rpc.logout()
     return problems

@@ -625,8 +625,8 @@ def generated_config():
         topo = load_topology()
         out.append("### fmg-overlay-template.json (voorbeeld, nog niet uitgerold)\n"
                    + json.dumps(fmg.overlay_payload(topo), indent=2))
-        health, services = fmg.sdwan_rules(topo)
-        out.append("### fmg-sdwan-rules.json\n" + json.dumps({"health-check": health, "service": services}, indent=2))
+        health, services, _ = fmg.sdwan_rules(topo, fmg._members(topo, "branch"))
+        out.append("### fmg-sdwan.json (voorbeeld)\n" + json.dumps({"health-check": health, "service": services}, indent=2))
     return "\n\n".join(out)
 
 
