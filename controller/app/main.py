@@ -545,7 +545,7 @@ class FgtMonitor(BaseModel):
 FGT_MONITOR_ALLOWED = ("/api/v2/monitor/vpn/ipsec", "/api/v2/monitor/router/bgp/neighbors",
                        "/api/v2/monitor/virtual-wan/health-check", "/api/v2/monitor/virtual-wan/members",
                        "/api/v2/monitor/virtual-wan/sla-log", "/api/v2/monitor/router/bgp/paths",
-                       "/api/v2/monitor/firewall/session", "/api/v2/cmdb/system/sdwan",
+                       "/api/v2/monitor/firewall/session", "/api/v2/cmdb/system/sdwan", "/api/v2/monitor/log/fortianalyzer", "/api/v2/cmdb/log.fortianalyzer/setting",
                        "/api/v2/monitor/router/ipv4", "/api/v2/monitor/system/status",
                        "/api/v2/monitor/system/interface", "/api/v2/monitor/system/config/status")
 
