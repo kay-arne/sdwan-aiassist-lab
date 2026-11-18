@@ -544,7 +544,12 @@ def build_hub_to_hub(log, topo, rpc: JsonRpc, warn):
                             "allowaccess": ["ping"]})
             except RpcError as e:
                 warn(f"hub-naar-hub {dev} {ln['name']}: {e}")
-        script = ["config router bgp", "  config neighbor"]
+        # de tunnel-IP's gaan via de CLI (net als bij de overlay-tunnels): FortiManager installeert ze niet vanuit de device-database
+        script = ["config system interface"]
+        for ln in links:
+            script += [f'  edit "{ln["name"]}"', f"    set ip {ln['ip']} 255.255.255.255",
+                       f"    set remote-ip {ln['remote_ip']} 255.255.255.255", "    set allowaccess ping", "  next"]
+        script += ["end", "config router bgp", "  config neighbor"]
         for ln in links:
             script += [f'    edit "{ln["remote_ip"]}"', f"      set remote-as {topo['sdwan']['as_number']}",
                        "      set next-hop-self enable", "      set next-hop-self-rr enable", "      set soft-reconfiguration enable",
