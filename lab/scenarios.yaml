@@ -125,11 +125,11 @@ scenarios:
       - {do: traffic, site: br2, preset: security}
       - {do: sleep, seconds: 240}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Show top threats for FGT-BR2, past hour.", expect: "Adressen plus korte analyse en mitigatie-advies"}
-      - {where: FortiAnalyzer, prompt: "Perform a security reputation check for <IP uit het vorige antwoord>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); 'geen reputatiedata' betekent onbekend of niet kwaadaardig. Vraag daarna om mitigatie"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs for FGT-BR2 traffic, past hour.", expect: "Taartdiagram met Traffic-Gen-bronnen 10.12.0.50-55"}
-      - {where: FortiAnalyzer, prompt: "Create an event handler for web filter blocks on FGT-BR2.", expect: "Event handler met naam en regelsamenvatting"}
-      - {where: FortiAnalyzer, prompt: "List incidents created in the past 24 hours.", expect: "Incidenten uit event handlers (kan leeg zijn); vraag door naar details en affected endpoints"}
+      - {where: FortiAnalyzer, prompt: "Show top threats for the past hour.", expect: "Tabel met dreigingen (malware.wicar.org bovenaan, proxy avoidance, pornografie) en mitigatie-advies"}
+      - {where: FortiAnalyzer, prompt: "Perform a security reputation check for malware.wicar.org", expect: "Domein bevestigd als 'Malicious Websites' met hoge zekerheid (FortiGuard)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs that accessed malware.wicar.org, past hour.", expect: "Taartdiagram met de Traffic-Gen-bronnen die de site probeerden te bereiken"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler named SOC-Malware-Site-Access for blocked web filter events to malware.wicar.org. Severity high, description: Blocked access to a known malware test site. Create an incident automatically.", expect: "FortiAI bereidt de handler voor (naam, filter, hoge ernst, automatisch incident) en vraagt om bevestiging: klik Create in het venster. De handler maakt daarna bij elke geblokkeerde toegang zelf een incident aan"}
+      - {where: FortiAnalyzer, prompt: "List incidents created in the past hour.", expect: "De door de event handler aangemaakte incidenten (laat een paar minuten verkeer lopen na het aanmaken)"}
       - {where: FortiAnalyzer, prompt: "Produce an incident report for incident <nummer>.", expect: "Rapport met download-icoon in het antwoord"}
     cleanup:
       - {do: traffic_stop}
@@ -189,9 +189,9 @@ scenarios:
       - {do: traffic, site: br2, preset: security}
       - {do: sleep, seconds: 240}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Please help fetch the latest incident.", expect: "Incidentdetails met het getroffen IP (er moet een incident bestaan: maak er een in Incidents & Events vanuit een event)"}
-      - {where: FortiAnalyzer, prompt: "Check the reputation of <publiek IP uit het incident>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); 'geen reputatiedata' betekent onbekend of niet kwaadaardig. Vraag daarna om mitigatie-advies"}
-      - {where: FortiAnalyzer, prompt: "Show top source IPs by sessions for FGT-BR2, past hour.", expect: "Log-analyse: andere bronnen die naar dezelfde bestemming praten (hier de Traffic-Gen-bronnen 10.12.0.5x)"}
+      - {where: FortiAnalyzer, prompt: "Show the latest incident.", expect: "Incidentdetails; de event handler SOC-Malware-Site-Access maakt de incidenten (zie hoofdstuk 6 of maak de handler eerst aan)"}
+      - {where: FortiAnalyzer, prompt: "Perform a security reputation check for malware.wicar.org", expect: "Domein bevestigd als 'Malicious Websites'; vraag daarna om mitigatie-advies"}
+      - {where: FortiAnalyzer, prompt: "Show source IPs that accessed malware.wicar.org in the past hour.", expect: "Welke endpoints zijn geraakt: de Traffic-Gen-bronnen uit Rotterdam"}
       - {where: FortiAnalyzer, prompt: "Open Threat Hunting.", expect: "FortiAI opent de pagina zonder dat je het gesprek verlaat"}
       - {where: FortiAnalyzer, prompt: "Open Log View.", expect: "FortiAI opent Log View vanuit het gesprek"}
       - {where: FortiAnalyzer, prompt: "Update the incident and hand off.", expect: "Notitie en status aan het incident; ruimt de overdracht op"}
@@ -199,7 +199,7 @@ scenarios:
       - {where: FortiAnalyzer, prompt: "Create an event handler for IPsec tunnel down events on FGT-BR2.", expect: "Antwoord \"Yes\" op de bevestigingsvraag; er opent een venster met de regel, klik Create"}
       - {where: FortiAnalyzer, prompt: "Can FortiAnalyzer generate a visual on threats?", expect: "FortiAI legt uit wat het kan renderen"}
       - {where: FortiAnalyzer, prompt: "What type of charts can be rendered?", expect: "Antwoord: taartdiagram en staafdiagram (ook gegroepeerd/gestapeld)"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs connected to <publiek IP>.", expect: "Taartdiagram met de bronnen"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs that accessed malware.wicar.org, past hour.", expect: "Taartdiagram met de bronnen"}
     cleanup:
       - {do: traffic_stop}
 

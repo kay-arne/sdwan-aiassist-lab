@@ -46,7 +46,7 @@ fortianalyzer:
   memory: 8192
   data_disk_gb: 150        # logs en indexen
   mgmt_ip: 10.255.0.11
-  adom: SDWAN-LAB
+  adom: root               # FortiAI vereist een Fabric-ADOM; in FortiAnalyzer is dat alleen 'root' (een eigen ADOM is van het type FortiGate en geeft 'Fabric ADOM required')
 
 # --- FortiGates (FortiGate-VM, FortiOS 7.6) -----------------------------------------
 # port1 = lab-management, port2 = underlay A, port3 = underlay B, port4 = LAN (IP's: zie underlays)
