@@ -395,7 +395,7 @@ def lab_profiles(topo) -> str:
     (laat ADVPN-shortcuts ontstaan). Wordt achter de standaardprofielen van Traffic-Gen gezet."""
     servers = [n for n in inventory(topo) if n["role"] == "dcserver"]
     branches = [n for n in nodes_by_role(topo, "trafficgen")]
-    web = ", ".join(f'"http://{s["ip"]}/"' for s in servers)
+    web = ", ".join(f'"http://{s["name"]}.lab/"' for s in servers)      # naam: Traffic-Gen resolvt zelf, een IP-literal werkt niet
     ips = ", ".join(f'"{s["ip"]}"' for s in servers)
     bips = ", ".join(f'"{b["ip"]}"' for b in branches)
     return "\n".join([
@@ -403,6 +403,17 @@ def lab_profiles(topo) -> str:
         f"  dc-web:       {{group: dc, weight: 6, urls: [{web}]}}",
         f"  dc-ping:      {{group: dc, weight: 2, ping: [{ips}]}}",
         f"  branch-ping:  {{group: branch, weight: 1, ping: [{bips}]}}", ""])
+
+
+def update_isp_dns(log, topo):
+    """De ISP-router (DNS voor het lab) kent de datacenter-servers: srv-ams.lab en srv-fra.lab."""
+    h = host()
+    servers = [n for n in inventory(topo) if n["role"] == "dcserver"]
+    conf = "".join(f"address=/{s['name']}.lab/{s['ip']}\n" for s in servers)
+    for isp in nodes_by_role(topo, "isp"):
+        if h.status(isp["vmid"]) == "running":
+            h.pct_exec(isp["vmid"], f"printf '{conf}' > /etc/dnsmasq.d/lab-hosts.conf; systemctl restart dnsmasq")
+            log(f"{isp['hostname']}: DNS-namen voor de datacenter-servers ({', '.join(s['name'] + '.lab' for s in servers)})")
 
 
 def install_lab_profiles(vmid, topo):
@@ -521,6 +532,7 @@ def provision_all(log, topo):
         except Exception as e:  # noqa: BLE001
             log(f"⚠ tijdzone {label}: {e}")
     tz.containers(log, topo)
+    update_isp_dns(log, topo)
     apply_traffic_config(log)        # Traffic-Gen-profielen en bronnetwerken (her)installeren
     _start_background(log, topo)
     for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
