@@ -21,7 +21,7 @@ op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), urllib
 def call(path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(f"https://127.0.0.1:{PORT}{path}", data=data,
-                                 headers={"Content-Type": "application/json"}, method="POST" if data is not None else "GET")
+                                 headers={"Content-Type": "application/json", "X-TG": "1"}, method="POST" if data is not None else "GET")
     try:
         return json.loads(op.open(req, timeout=30).read() or b"{}")
     except urllib.error.HTTPError as e:
