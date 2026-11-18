@@ -605,11 +605,7 @@ def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
             oid = _wanprof_oid(rpc, ad, tname, f"SD-WAN & FortiAI Lab: {role}s")
             rpc.update(base, {"status": "enable"})
             for z in (sd["zones"]["underlay"], sd["zones"]["overlay"]):
-                row = {"name": z}
-                if role == "branch" and z == sd["zones"]["overlay"] and sd.get("advpn_2"):
-                    # ADVPN 2.0: SD-WAN kiest zelf tussen shortcut-tunnels en hub-tunnels op basis van de SLA van de peer
-                    row.update({"advpn-select": "enable", "advpn-health-check": [sd["health_check"]["name"]]})
-                _put_row(rpc, f"{base}/zone", z, row)
+                _put_row(rpc, f"{base}/zone", z, {"name": z})
             for m in members:
                 row = {"seq-num": m["seq-num"], "interface": [m["interface"]], "zone": [m["zone"]], "cost": 0}
                 if m.get("gateway"):
@@ -637,6 +633,14 @@ def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
                     warn(f"health-check {hc['name']}: {e}")
             for svc in services:
                 _add_service(log, warn, rpc, base, svc, tname)
+            if sd.get("advpn_2"):
+                # ADVPN 2.0: SD-WAN kiest zelf tussen shortcut-tunnels en hub-tunnels op basis van de SLA van de peer.
+                # Pas na het aanmaken van de health-checks: de zone verwijst ernaar.
+                try:
+                    rpc.update(f"{base}/zone/{sd['zones']['overlay']}",
+                               {"advpn-select": "enable", "advpn-health-check": [sd["health_check"]["name"]]})
+                except RpcError as e:
+                    warn(f"ADVPN 2.0 op zone {sd['zones']['overlay']}: {e}")
         groups = ([f"{sd['template']}_HUB{i}" for i in range(1, len(hubs(topo)) + 1)] if role == "hub"
                   else [f"{sd['template']}_BRANCH"])
         for grp in groups:
@@ -787,8 +791,10 @@ def provision(log, topo, devices=None) -> list[str]:
         build_hub_tunnel_ips(log, topo, rpc, warn)
         build_hub_to_hub(log, topo, rpc, warn)
         build_sdwan(log, topo, rpc, warn)
-        default_route_via_sdwan(log, topo, rpc, warn)
         # eerst de device-settings (maakt de zones op de FortiGates), daarna pas objecten en policies
+        install(log, topo, rpc, warn, devices, only="device")
+        # de default-route verwijst naar de SD-WAN-zone; die bestaat pas in de device-database na de eerste installatie
+        default_route_via_sdwan(log, topo, rpc, warn)
         install(log, topo, rpc, warn, devices, only="device")
     zones = discover_zones(rpc, topo)
     log(f"[FortiManager] zones: overlay={zones['overlay']}, underlay={zones['underlay']}")
