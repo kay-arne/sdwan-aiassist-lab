@@ -84,6 +84,8 @@ guides:
       - text: "Wacht ongeveer een minuut zodat er een basislijn in de logs staat."
       - buttons:
           - {label: "2. Link verslechteren (WAN-A Utrecht)", action: {do: impair, site: br1, transport: A, delay: 150, jitter: 40, loss: 6}}
+      - image: fmg-sdwan-monitor.jpg
+        caption: "FortiManager > Device Manager > Monitors > SD-WAN Monitor (Table View): in de gezonde situatie staan links, SLA, applicaties en regels allemaal op groen. Tijdens de brownout zie je hier de SLA van Utrecht omslaan en de regels van link wisselen."
       - text: "Wacht twee minuten en kijk dan zelf wat SD-WAN doet:"
       - buttons:
           - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
