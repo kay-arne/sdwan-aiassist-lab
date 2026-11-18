@@ -16,6 +16,8 @@ guides:
           vanuit **FortiManager** en gelogd naar **FortiAnalyzer**. **Traffic-Gen** in elke branch genereert verkeer; **FortiAI-Assist**
           in FortiManager en FortiAnalyzer beantwoordt vragen over wat er gebeurt. Elk hoofdstuk hiernaast is een demo met knoppen om
           de situatie te veroorzaken en de vragen die je daarna stelt.
+      - image: fmg-overlay.jpg
+        caption: "FortiManager > SD-WAN Manager > Overlay Orchestration: de overlay LAB-OVERLAY (twee hubs, spokes via groep SPOKES, BGP AS 65000) is vanuit één template uitgerold."
       - text: >
           **Stap 1: inloggen.** De adressen en inloggegevens van alle onderdelen open je op elk moment met de knop **Toegang** linksboven
           in deze guide.
@@ -56,6 +58,10 @@ guides:
           - {label: "Links en hubs herstellen", action: {do: clear}}
           - {label: "Normaal verkeer op alle branches", action: {do: traffic, site: all, preset: normal}}
       - tip: "Laat het verkeer 5-10 minuten draaien, of gebruik het achtergrondverkeer als dat al langer loopt."
+      - image: faz-logview.jpg
+        caption: "FortiAnalyzer > Log View > Traffic: echte gebruikerssessies per branch (Microsoft Teams, Outlook, Facebook, Apple Updates) naast de PING-probes van de SD-WAN health-check."
+      - image: faz-topapps.jpg
+        caption: "FortiView > Applications: het applicatiebeeld van het laatste uur. Dit is de data waar FortiAI straks op antwoordt; let ook op de kritieke app Proxy.Websites."
       - buttons:
           - {label: "ISP-links bekijken", check: links}
           - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
@@ -158,6 +164,8 @@ guides:
       - buttons:
           - {label: "Aanvalsverkeer in Rotterdam", action: {do: traffic, site: br2, preset: security}}
       - text: "Wacht minstens vier minuten, bij voorkeur langer."
+      - image: faz-eventmonitor.jpg
+        caption: "Incidents & Events > Event Monitor: FortiAnalyzer heeft de aanvalssessies al omgezet naar events (kritieke risicovolle app, proxy-avoidance, kwaadaardige website geblokkeerd) per bronhost."
       - tip: "Vragen met <IP> of <nummer> vul je in met het resultaat van de vorige vraag in dezelfde thread."
       - ai: all
       - buttons:
@@ -215,6 +223,8 @@ guides:
       - buttons:
           - {label: "Aanvalsverkeer in Rotterdam", action: {do: traffic, site: br2, preset: security}}
       - tip: "Voor stap 1 heb je een incident nodig: maak er een in **Incidents & Events** vanuit een security-event."
+      - image: faz-eventmonitor.jpg
+        caption: "Vanuit de Event Monitor maak je het incident aan (Actions > Create Incident) waar FortiAI mee verder gaat."
       - text: "**Deel 1: incident onderzoeken**"
       - ai: [0, 1, 2, 3, 4]
       - text: "**Wat je benadrukt:** informatie uit meerdere plekken in één gesprek, context (dreigingsinfo en getroffen assets) in seconden, en doorvragen om de zaak te verfijnen. Richtwaarde: AI gemiddeld 3 minuten, handmatig gemiddeld 48 minuten."
@@ -225,6 +235,8 @@ guides:
       - ai: [7]
       - text: "**Wat je benadrukt:** een detectieregel maken kost een paar zinnen in plaats van handmatig regels bouwen, en de regels zijn afgestemd op de omgeving."
       - text: "**Deel 4: rapport en visualisatie**"
+      - image: faz-fortiai-chart.jpg
+        caption: "FortiAI in FortiAnalyzer: een taartdiagram van de top 10 applicaties, gegenereerd uit één zin. Rechtsonder staat het resterende maandelijkse tokenbudget."
       - ai: [8, 9, 10]
       - text: "**Wat je benadrukt:** de gebruiker kiest bronnen, parameters en diagramtype in een begeleid proces; minder handwerk voor rapportages."
       - buttons:

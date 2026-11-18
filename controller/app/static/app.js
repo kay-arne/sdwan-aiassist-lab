@@ -313,6 +313,7 @@ async function loadGuides() {
   const sc = g.scenario ? CAT.scenarios.find((s) => s.id === g.scenario) : null;
   const step = (s, i) => {
     if (s.text) return `<p>${md(s.text)}</p>`;
+    if (s.image) return `<figure class="shot"><a href="/static/guide/${esc(s.image)}" target="_blank" rel="noopener"><img src="/static/guide/${esc(s.image)}" alt="${esc(s.caption || "")}" loading="lazy"></a><figcaption>${md(s.caption || "")}</figcaption></figure>`;
     if (s.tip) return `<div class="tipbox">${md(s.tip)}</div>`;
     if (s.buttons) return `<div class="gbtns">${s.buttons.map((b, k) => `<button class="${b.check ? "" : "primary"}" data-gs="${i}.${k}">${esc(b.label)}</button>`).join("")}</div><div class="gout" id="gout-${i}"></div>`;
     if (s.ai && sc) return (s.ai === "all" ? sc.fortiai : s.ai.map((n) => sc.fortiai[n])).map(aiRow).join("");
