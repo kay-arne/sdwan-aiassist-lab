@@ -570,10 +570,10 @@ def fgt_monitor(q: FgtMonitor):
         rpc.logout()
 
 
-FGT_CLI_ALLOWED = ("diagnose sys sdwan health-check", "diagnose sys sdwan service", "diagnose sys sdwan member",
-                   "diagnose sys sdwan intf-sla-log", "diagnose sys sdwan zone", "get router info bgp summary",
-                   "get router info routing-table all", "diagnose vpn ike gateway list", "get system status",
-                   "diagnose sys sdwan advpn-session", "diagnose firewall proute list")
+FGT_CLI_PREFIXES = ("diagnose sys sdwan ", "get router info ", "diagnose vpn ike gateway", "diagnose firewall proute",
+                    "get system status", "show system sdwan", "show full-configuration system sdwan",
+                    "diagnose sys link-monitor", "diagnose test application sdwand", "diagnose debug application sdwan")
+FGT_CLI_ALLOWED = ()                 # (verouderd; zie FGT_CLI_PREFIXES)
 
 
 class FgtCli(BaseModel):
@@ -587,7 +587,7 @@ def fgt_cli(q: FgtCli):
     from . import console, fmg
     topo = load_topology()
     site = next((s for s in topo["sites"] if s["fgt_name"] == q.device), None)
-    if not site or q.command not in FGT_CLI_ALLOWED:
+    if not site or not q.command.startswith(FGT_CLI_PREFIXES) or any(c in q.command for c in ";|&`$<>"):
         raise HTTPException(400, "onbekend device of niet-toegestane opdracht")
     try:
         cli = console.Cli(site["mgmt_ip"], get_state().get("admin_password", ""))
