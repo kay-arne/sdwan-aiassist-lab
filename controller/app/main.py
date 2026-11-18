@@ -466,6 +466,45 @@ def traffic_log(name: str):
     return {"name": name, "log": txt}
 
 
+class FlowTrace(BaseModel):
+    device: str
+    saddr: str
+    dport: int = 443
+    packets: int = 20
+
+
+@app.post("/api/fgt/flow")
+def fgt_flow(q: FlowTrace):
+    """Korte 'diagnose debug flow'-trace op een FortiGate (vast stappenplan; debug wordt daarna altijd uitgezet)."""
+    import ipaddress
+    import time
+    from . import console
+    topo = load_topology()
+    site = next((s for s in topo["sites"] if s["fgt_name"] == q.device), None)
+    try:
+        ipaddress.ip_address(q.saddr)
+    except ValueError:
+        raise HTTPException(400, "ongeldig bronadres")
+    if not site or not 1 <= q.dport <= 65535:
+        raise HTTPException(400, "onbekend device of poort")
+    cli = console.Cli(site["mgmt_ip"], get_state().get("admin_password", ""))
+    try:
+        for c in ("diagnose debug reset", "diagnose debug flow filter clear", f"diagnose debug flow filter saddr {q.saddr}",
+                  f"diagnose debug flow filter dport {q.dport}", "diagnose debug flow show function-name enable",
+                  f"diagnose debug flow trace start {min(q.packets, 40)}", "diagnose debug enable"):
+            cli.run(c, timeout=10)
+        out = cli._read(12)
+        time.sleep(1)
+        return {"device": q.device, "trace": out[-6000:]}
+    finally:
+        try:
+            cli.run("diagnose debug disable", timeout=10)
+            cli.run("diagnose debug reset", timeout=10)
+        except Exception:  # noqa: BLE001
+            pass
+        cli.close()
+
+
 @app.post("/api/timezone")
 def apply_timezone():
     from . import tz
