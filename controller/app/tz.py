@@ -64,38 +64,3 @@ def containers(log, topo):
             h.pct_exec(node["vmid"], f"ln -sf /usr/share/zoneinfo/{tz} /etc/localtime && echo {tz} > /etc/timezone")
             n += 1
     log(f"tijdzone {tz} in {n} containers")
-
-
-def apply_all(log, topo):
-    """Alles in één keer (taak 'Tijdzone toepassen'): LXC's, FortiManager, FortiAnalyzer en de FortiGates via FortiManager."""
-    tz = name(topo)
-    problems: list[str] = []
-    use_for_process(topo)
-    containers(log, topo)
-    try:                                    # de controller zelf (draait als root): joblog-tijden
-        import os
-        os.symlink(f"/usr/share/zoneinfo/{tz}", "/etc/localtime.new")
-        os.replace("/etc/localtime.new", "/etc/localtime")
-        open("/etc/timezone", "w").write(tz + "\n")
-        log(f"tijdzone {tz} op de controller")
-    except OSError as e:
-        log(f"⚠ tijdzone controller: {e}")
-    for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
-        try:
-            appliance(log, ip, label, tz)
-        except Exception as e:  # noqa: BLE001
-            problems.append(f"{label}: {e}")
-            log(f"⚠ tijdzone {label}: {e}")
-    for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
-        try:
-            console.set_idle_timeout(log, ip, get_state().get("admin_password", ""), label)
-        except Exception as e:  # noqa: BLE001
-            problems.append(f"sessie-timeout {label}: {e}")
-    rpc = fmg.client(topo)
-    try:
-        fortigates(log, topo, rpc, problems.append)
-        fmg.install(log, topo, rpc, problems.append, only="device")
-    finally:
-        rpc.logout()
-    for p in problems:
-        log(f"⚠ {p}")

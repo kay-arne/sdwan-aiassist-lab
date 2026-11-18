@@ -505,12 +505,6 @@ def fgt_flow(q: FlowTrace):
         cli.close()
 
 
-@app.post("/api/timezone")
-def apply_timezone():
-    from . import tz
-    return _start("Tijdzone toepassen", lambda log: tz.apply_all(log, load_topology()))
-
-
 @app.post("/api/update-labnode")
 def update_labnode():
     return _start("Labnode bijwerken", deployer.update_labnode)
