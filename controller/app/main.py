@@ -583,35 +583,20 @@ class FgtCli(BaseModel):
 
 @app.post("/api/fgt/cli")
 def fgt_cli(q: FgtCli):
-    """Alleen-lezen diagnose-opdracht op een FortiGate, via een FortiManager-script (vaste lijst opdrachten)."""
-    import time
-    from . import fmg
-    from .jsonrpc import RpcError
+    """Alleen-lezen diagnose-opdracht op een FortiGate via SSH over het management-netwerk (vaste lijst)."""
+    from . import console, fmg
     topo = load_topology()
-    if q.device not in fmg.device_names(topo) or q.command not in FGT_CLI_ALLOWED:
+    site = next((s for s in topo["sites"] if s["fgt_name"] == q.device), None)
+    if not site or q.command not in FGT_CLI_ALLOWED:
         raise HTTPException(400, "onbekend device of niet-toegestane opdracht")
-    ad, name = fmg.adom(topo), "lab-diag"
-    rpc = fmg.client(topo)
     try:
-        rpc.upsert(f"/dvmdb/adom/{ad}/script", {"name": name, "type": "cli", "content": q.command,
-                                                  "desc": "diagnose (alleen-lezen)", "target": "remote_device"})
-        rpc.exec(f"/dvmdb/adom/{ad}/script/execute", {"adom": ad, "script": name,
-                                                      "scope": [{"name": q.device, "vdom": "root"}], "package": ""})
-        out = ""
-        for _ in range(10):
-            time.sleep(3)
-            logs = rpc.get(f"/dvmdb/adom/{ad}/script/log/summary/device/{q.device}") or []
-            if logs:
-                latest = max(logs, key=lambda x: x.get("exec_time", 0))
-                res = rpc.get(f"/dvmdb/adom/{ad}/script/log/output/device/{q.device}/logid/{latest['log_id']}")
-                out = (res or {}).get("content", "") if isinstance(res, dict) else str(res)
-                if out:
-                    break
-        return {"device": q.device, "command": q.command, "output": out}
-    except RpcError as e:
+        cli = console.Cli(site["mgmt_ip"], get_state().get("admin_password", ""))
+    except Exception as e:  # noqa: BLE001
         return {"device": q.device, "command": q.command, "error": str(e)}
+    try:
+        return {"device": q.device, "command": q.command, "output": cli.run(q.command, timeout=40)}
     finally:
-        rpc.logout()
+        cli.close()
 
 
 @app.get("/api/fortiai/status")
