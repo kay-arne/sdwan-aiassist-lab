@@ -490,6 +490,13 @@ def provision_all(log, topo):
     fmg.provision(log, topo)
     log("== FortiAnalyzer: devices autoriseren ==")
     faz.provision(log, topo)
+    from . import tz
+    for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
+        try:
+            tz.appliance(log, ip, label, tz.name(topo))
+        except Exception as e:  # noqa: BLE001
+            log(f"⚠ tijdzone {label}: {e}")
+    tz.containers(log, topo)
 
 
 def deploy_all(log):

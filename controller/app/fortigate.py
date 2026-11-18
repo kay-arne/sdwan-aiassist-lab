@@ -38,6 +38,7 @@ def bootstrap_config(topo: dict, state: dict, site: dict) -> str:
         "  set admintimeout 480",
         "  set admin-sport 443",
         "  set gui-theme jade",
+        f"  set timezone {topo['lab'].get('timezone', 'Europe/Amsterdam')}",
         "end",
         "config system password-policy",
         "  set status disable",

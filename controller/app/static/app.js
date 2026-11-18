@@ -131,6 +131,7 @@ $("#btn-sel-destroy").onclick = () => runJob("/api/destroy/selected", { items: [
 $("#btn-deploy").onclick = () => runJob("/api/deploy", {}, "Volledig lab uitrollen? Dit duurt lang (30-60 min).");
 $("#btn-provision").onclick = () => runJob("/api/provision");
 $("#btn-install").onclick = () => runJob("/api/install");
+$("#btn-tz").onclick = () => runJob("/api/timezone");
 $("#btn-labnode").onclick = () => runJob("/api/update-labnode");
 $("#btn-destroy").onclick = () => runJob("/api/destroy", { template: confirm("Ook het LXC-template verwijderen?"), network: confirm("Ook de bridges verwijderen?") }, "ALLE lab-VM's en containers verwijderen?");
 $("#btn-config").onclick = async () => viewer("Gegenereerde config", `<pre>${esc(await api("/api/config"))}</pre>`);

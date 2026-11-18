@@ -619,6 +619,8 @@ def provision(log, topo, devices=None) -> list[str]:
     rpc = wait_api(log, topo)
     ensure_adom(log, rpc, adom(topo), "FortiManager")
     add_devices(log, topo, rpc, warn)
+    from . import tz
+    tz.fortigates(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
         build_hub_tunnel_ips(log, topo, rpc, warn)
         build_sdwan(log, topo, rpc, warn)
