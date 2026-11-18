@@ -737,6 +737,7 @@ class Action(BaseModel):
     seconds: Optional[int] = None
     streams: Optional[int] = None
     background: Optional[bool] = None
+    target: Optional[str] = None
 
 
 @app.post("/api/action")

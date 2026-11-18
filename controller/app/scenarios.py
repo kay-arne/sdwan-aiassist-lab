@@ -129,6 +129,20 @@ def fmg_script(log, topo, device, name, content):
         rpc.logout()
 
 
+def ping(log, topo, site, target, count=5):
+    """Ping vanaf een FortiGate (SSH over het management-netwerk), bijvoorbeeld om een ADVPN-shortcut uit te lokken."""
+    from . import console
+    from .config import get_state
+    s = site_map(topo)[site]
+    cli = console.Cli(s["mgmt_ip"], get_state().get("admin_password", ""))
+    try:
+        out = cli.run(f"execute ping {target}", timeout=40)
+    finally:
+        cli.close()
+    tail = [l for l in out.replace("\r", "").split("\n") if "packets" in l or "round-trip" in l]
+    log(f"{s['fgt_name']} ping {target}: " + " | ".join(t.strip() for t in tail))
+
+
 def run_action(log, topo, a: dict):
     do = a["do"]
     if do == "impair":
@@ -143,6 +157,8 @@ def run_action(log, topo, a: dict):
         traffic_stop(log, topo, a.get("background", True))
     elif do == "vm":
         vm_power(log, topo, a["site"], a["op"])
+    elif do == "ping":
+        ping(log, topo, a["site"], a["target"])
     elif do == "iperf":
         iperf(log, topo, a["site"], a["to"], a.get("seconds", 20), a.get("streams", 4))
     elif do == "fmg_script":

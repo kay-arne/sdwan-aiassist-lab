@@ -327,7 +327,7 @@ async function loadGuides() {
     const [i, k] = b.dataset.gs.split(".").map(Number), btn = g.steps[i].buttons[k], out = $("#gout-" + i);
     if (btn.action) return act(btn.action);
     out.innerHTML = '<span class="muted">ophalen…</span>';
-    if (btn.check === "links") showLinks(out); else showHealth(out, btn.device);
+    if (btn.check === "links") showLinks(out); else if (btn.check === "tunnels") showTunnels(out, btn.device); else showHealth(out, btn.device);
   }));
   if ($("#g-docs")) loadDocs();
   const st = $("#btn-ai-status"); if (st) st.onclick = aiStatus;
@@ -355,6 +355,16 @@ async function showHealth(el, dev) {
   try {
     const r = await api("/api/sdwan/" + dev);
     el.innerHTML = r.error ? `<span class="warn">${esc(r.error)}</span>` : r.health.length ? `<table class="kv"><tr><th>Health-check</th><th>Member</th><th>Status</th><th>Latency</th><th>Jitter</th><th>Loss</th></tr>${r.health.map((x) => `<tr><td>${esc(x.health_check)}</td><td>${esc(x.member)}</td><td>${stBadge(x.status === "alive" ? "running" : x.status)}</td><td>${esc(x.latency)}</td><td>${esc(x.jitter)}</td><td>${esc(x.loss)}</td></tr>`).join("")}</table>` : "Geen data.";
+  } catch (e) { el.innerHTML = `<span class="warn">${esc(e.message)}</span>`; }
+}
+async function showTunnels(el, dev) {
+  try {
+    const r = await post("/api/fgt/cli", { device: dev, command: "diagnose vpn tunnel list" });
+    const rows = (r.output || "").replace(/\r/g, "").split("\n").filter((l) => /^name=/.test(l)).map((l) => {
+      const m = l.match(/^name=(\S+).*?(\d+\.\d+\.\d+\.\d+):\d+->(\d+\.\d+\.\d+\.\d+)/);
+      return m ? { name: m[1], from: m[2], to: m[3], shortcut: /_\d+$/.test(m[1]) } : null;
+    }).filter(Boolean);
+    el.innerHTML = r.error ? `<span class="warn">${esc(r.error)}</span>` : rows.length ? `<table class="kv"><tr><th>Tunnel</th><th>Van</th><th>Naar</th><th>Type</th></tr>${rows.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.from)}</td><td>${esc(x.to)}</td><td>${x.shortcut ? '<span class="tag ok">shortcut</span>' : "hub"}</td></tr>`).join("")}</table>` : "Geen tunnels.";
   } catch (e) { el.innerHTML = `<span class="warn">${esc(e.message)}</span>`; }
 }
 async function showLinks(el) {

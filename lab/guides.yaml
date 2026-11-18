@@ -87,9 +87,13 @@ guides:
       - image: fmg-sdwan-monitor.jpg
         caption: "FortiManager > Device Manager > Monitors > SD-WAN Monitor (Table View): in de gezonde situatie staan links, SLA, applicaties en regels allemaal op groen. Tijdens de brownout zie je hier de SLA van Utrecht omslaan en de regels van link wisselen."
       - text: "Wacht twee minuten en kijk dan zelf wat SD-WAN doet:"
+      - image: fmg-brownout.jpg
+        caption: "Tijdens de brownout (150 ms, 40 ms jitter, 6% verlies) slaan SLA-status, applicaties en regels in de SD-WAN Monitor om naar oranje 'Attention Needed'; de tunnel HUB1-VPN1 van Utrecht krijgt een waarschuwing."
       - buttons:
           - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
           - {label: "ISP-links", check: links}
+      - image: faz-sdwan-summary.jpg
+        caption: "FortiAnalyzer > FortiView > SD-WAN: de SLA-problemen per interface en tunnel (hier met jitter bovenaan), gevoed door de SLA-logs van de FortiGates."
       - text: "**Vraag het FortiAI.**"
       - ai: all
       - buttons:
@@ -109,6 +113,8 @@ guides:
       - buttons:
           - {label: "2. WAN-A Rotterdam down", action: {do: link, site: br2, transport: A, state: down}}
       - text: "Wacht ongeveer 90 seconden en bekijk de status:"
+      - image: fmg-blackout.jpg
+        caption: "SD-WAN Monitor tijdens de blackout: UNDERLAY-A (port2) van Rotterdam staat rood, de tunnels over die link zijn down en het verkeer loopt via UNDERLAY-B."
       - buttons:
           - {label: "SD-WAN health-check Rotterdam", check: health, device: FGT-BR2}
           - {label: "ISP-links", check: links}
@@ -132,6 +138,8 @@ guides:
       - buttons:
           - {label: "2. Hub Amsterdam uitzetten", action: {do: vm, site: hub-ams, op: stop}}
       - text: "Wacht twee minuten."
+      - image: fmg-hubfailure.jpg
+        caption: "SD-WAN Monitor na de uitval van Amsterdam: nog 4 devices, de HUB1-tunnels van de branches staan rood en de HUB2-tunnels (Frankfurt) dragen het verkeer."
       - buttons:
           - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
       - text: "**Vraag het FortiAI.**"
@@ -186,6 +194,8 @@ guides:
       - buttons:
           - {label: "1. Normaal verkeer in Utrecht", action: {do: traffic, site: br1, preset: normal}}
           - {label: "2. iperf3 Utrecht naar AMS (60 s)", action: {do: iperf, site: br1, to: srv-ams, seconds: 60, streams: 4}}
+      - image: fmg-throughput.jpg
+        caption: "SD-WAN Monitor tijdens de iperf3-test: de belasting laat de SLA van de HUB1-tunnels van Utrecht omslaan naar 'Attention Needed' en de internetlinks dragen meer dan 700 kbps."
       - text: "Wacht tot de test klaar is (zie Joblog) en vraag dan:"
       - ai: all
       - buttons:
@@ -199,6 +209,9 @@ guides:
       - text: >
           Geen verstoring: FortiAI in FortiManager als co-pilot. Open FortiAI in FortiManager en **kies eerst de assistent** bovenin het venster
           (Script Assistant, VPN Assistant of IoT Device Analysis).
+      - tip: >
+          **Eerste keer:** open je FortiAI in FortiManager voor het eerst, dan vraagt de assistent of je jezelf als FortiAI-gebruiker wilt inschakelen
+          (knop **Enable FortiAI for Myself**). Dat is een instelling op je admin-account; bevestig die één keer.
       - buttons:
           - {label: "Alles herstellen", action: {do: clear}}
       - tip: "Gegenereerde scripts bewaar je met Save Script (Device Manager > Scripts); controleer ze altijd voordat je ze uitvoert. De PSK in een VPN-script pas je handmatig aan."
@@ -212,6 +225,8 @@ guides:
       - text: "Management wil een overzicht per branch. Met FortiAI genereer je grafieken en een rapport."
       - buttons:
           - {label: "Normaal verkeer op alle branches", action: {do: traffic, site: all, preset: normal}}
+      - image: faz-countries.jpg
+        caption: "FortiView > Traffic > Top Country/Region: sessies, bytes en threat score per bestemmingsland, een mooi vertrekpunt voor een managementrapport."
       - text: "Laat het verkeer even lopen (liefst veel langer) en vraag dan:"
       - ai: all
       - buttons:
@@ -291,7 +306,13 @@ guides:
       - text: "**Ontwerp in dit lab.** De hubs sturen shortcut-aanbiedingen (`auto-discovery-sender`), de branches ontvangen ze. Tussen de hubs lopen aparte tunnels (`H2H-VPN1` en `H2H-VPN2`) met iBGP. De branches leren de LAN's van de andere branches rechtstreeks van beide hubs, met de andere branch zelf als next-hop; dat is wat shortcuts mogelijk maakt."
       - tip: >
           Bewust **niet** gebruikt: `next-hop-self-rr` op de hubs. Dat herschrijft de next-hop naar de hub en schakelt shortcuts uit.
-      - text: "**Laten zien.** Maak verkeer tussen twee branches (bijvoorbeeld een ping van de ene branch-LAN naar de andere) en kijk daarna naar de tunnels."
+      - text: "**Laten zien.** Eerst de tunnels van Utrecht in de normale situatie, dan verkeer naar Rotterdam, en daarna opnieuw de tunnels."
+      - buttons:
+          - {label: "1. Tunnels van Utrecht tonen", check: tunnels, device: FGT-BR1}
+          - {label: "2. Ping Utrecht naar Rotterdam", action: {do: ping, site: br1, target: 10.12.0.50}}
+          - {label: "3. Tunnels opnieuw tonen", check: tunnels, device: FGT-BR1}
+      - image: fmg-vpnmonitor.jpg
+        caption: "FortiManager > Device Manager > Monitors > VPN Monitor: de overlay tussen de branches (cluster in Nederland) en de hub in Frankfurt; shortcut-tunnels tussen branches verschijnen hier als extra verbindingen."
       - tip: >
           Op FGT-BR1 (Utrecht): `execute ping 10.12.0.50` naar Rotterdam, daarna `diagnose vpn tunnel list`. Naast `HUB1-VPN1` en de andere
           hub-tunnels verschijnt dan een shortcut zoals `HUB1-VPN1_0` met als eindpunt het underlay-adres van Rotterdam. In FortiManager zie je
