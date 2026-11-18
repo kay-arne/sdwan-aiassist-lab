@@ -317,13 +317,22 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
     hc = sd["health_check"]
     sla = hc["sla"]
     # Expliciete members ('Participants: Specify'): zonder deze lijst start FortiOS 7.6 de probes niet
-    health = [{"name": hc["name"], "server": ([hc["server"]] if isinstance(hc["server"], str) else list(hc["server"])), "protocol": hc["protocol"],
-               "interval": 1000, "failtime": 3, "recoverytime": 5,
-               # SLA-logregels: voeden FortiView > SD-WAN en de SLA-events in FortiAnalyzer
-               "sla-fail-log-period": 10, "sla-pass-log-period": 60,
-               "sla": [{"id": 1, "latency-threshold": sla["latency_ms"], "jitter-threshold": sla["jitter_ms"],
-                        "packetloss-threshold": sla["loss_pct"]}],
-               "members": [str(m["seq-num"]) for m in members if not m.get("underlay")]},
+    # Eén meting per hub, met het datacenter-doel achter die hub (AMS achter hub 1, FRA achter hub 2): de hubs zijn niet met elkaar
+    # verbonden, dus via hub 2 is de AMS-server niet bereikbaar en zou dat pad onterecht 'dead' staan.
+    servers = [hc["server"]] if isinstance(hc["server"], str) else list(hc["server"])
+    names, health = [], []
+    for h in range(1, len(hubs(topo)) + 1):
+        nm = hc["name"] if h == 1 else f"{hc['name']}_HUB{h}"
+        names.append(nm)
+        health.append({"name": nm, "server": [servers[min(h, len(servers)) - 1]], "protocol": hc["protocol"],
+                       "interval": 1000, "failtime": 3, "recoverytime": 5,
+                       # SLA-logregels: voeden FortiView > SD-WAN en de SLA-events in FortiAnalyzer
+                       "sla-fail-log-period": 10, "sla-pass-log-period": 60,
+                       "sla": [{"id": 1, "latency-threshold": sla["latency_ms"], "jitter-threshold": sla["jitter_ms"],
+                                "packetloss-threshold": sla["loss_pct"]}],
+                       "members": [str(m["seq-num"]) for m in members
+                                   if not m.get("underlay") and m["interface"].startswith(f"HUB{h}-")]})
+    health += [
               # de underlays (internet) kunnen het datacenter niet bereiken: eigen health-check, anders staan ze 'dead'
               # en wordt de default-route naar het internet inactief
               {"name": "INET", "server": ["8.8.8.8"], "protocol": "ping", "interval": 1000, "failtime": 3, "recoverytime": 5,
@@ -339,10 +348,10 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
             order = [first] + [z for z in (z_over, z_under) if z != first]
             if r.get("dst"):
                 order = [z_over]
-            svc.update({"mode": "sla", "priority-zone": order, "health-check": [hc["name"]],
-                        "sla": [{"health-check": hc["name"], "id": [1]}]})
+            svc.update({"mode": "sla", "priority-zone": order, "health-check": list(names),
+                        "sla": [{"health-check": n, "id": [1]} for n in names]})
         else:       # 'cost': goedkoopste link (laatste underlay), nooit over de overlay
-            svc.update({"mode": "priority", "priority-members": [by_underlay[last_u]], "health-check": [hc["name"]]})
+            svc.update({"mode": "priority", "priority-members": [by_underlay[last_u]], "health-check": [names[0]]})
         if r.get("isdb"):
             svc["internet-service"] = "enable"
             svc["internet-service-name"] = r["isdb"]
