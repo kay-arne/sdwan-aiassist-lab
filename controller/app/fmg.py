@@ -422,6 +422,42 @@ def _add_service(log, warn, rpc: JsonRpc, base: str, svc: dict, tname: str):
         warn(f"SD-WAN rule {svc['name']}: {e}")
 
 
+def _hub_tunnel_script(topo, h: int) -> str:
+    """CLI voor de tunnelinterfaces van hub h. De overlay-orchestratie zet het IP van de hub-tunnelinterface niet
+    (device-DB: ip 0.0.0.0), terwijl de branches de BGP-buur op <pool-einde>-2 verwachten (bijv. 10.10.31.253 voor
+    VPN1 van hub 1). Pools: /19 per (hub, underlay), blok = (h-1)*4 + (underlay-1) binnen het overlay-netwerk."""
+    import ipaddress
+    net = ipaddress.ip_network(topo["sdwan"]["overlay_network"])
+    lines = ["config system interface"]
+    for u in topo["sdwan"]["underlays"]:
+        start = int(net.network_address) + ((h - 1) * 4 + (int(u["id"]) - 1)) * 8192
+        ip, remote = ipaddress.ip_address(start + 8192 - 3), ipaddress.ip_address(start + 8192 - 2)
+        lines += [f'  edit "VPN{u["id"]}"', f"    set ip {ip} 255.255.255.255",
+                  f"    set remote-ip {remote} 255.255.224.0", "  next"]
+    lines.append("end")
+    return "\n".join(lines) + "\n"
+
+
+def build_hub_tunnel_ips(log, topo, rpc: JsonRpc, warn):
+    """Eigen CLI-template per hub in de CLI-groep van de overlay (wordt na elke orchestratie opnieuw toegevoegd)."""
+    ad, base = adom(topo), topo["sdwan"]["template"]
+    for h in range(1, len(hubs(topo)) + 1):
+        name = f"{base}_HUB{h}_TUNNEL_IPS"
+        try:
+            _put_row(rpc, f"/pm/config/adom/{ad}/obj/cli/template", name,
+                     {"name": name, "type": "cli", "option": "sdwan-overlay", "script": _hub_tunnel_script(topo, h),
+                      "description": "SD-WAN & FortiAI Lab: IP's van de hub-tunnelinterfaces"})
+            grp_url = f"/pm/config/adom/{ad}/obj/cli/template-group/{base}_HUB{h}_CLIGRP"
+            grp = rpc.get(grp_url)
+            grp = grp[0] if isinstance(grp, list) else grp
+            members = list(grp.get("member") or [])
+            if name not in members:
+                rpc.update(grp_url, {"member": members + [name]})
+            log(f"[FortiManager] hub {h}: tunnel-IP's ({name}) toegevoegd aan de CLI-groep")
+        except (RpcError, AttributeError, TypeError) as e:
+            warn(f"hub {h} tunnel-IP's: {e}")
+
+
 def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
     """SD-WAN-templates voor hubs en branches: zones, members (underlay + overlay), health-check en rules,
     opgenomen in de template-groepen die de overlay-orchestratie heeft gemaakt."""
@@ -563,6 +599,7 @@ def provision(log, topo, devices=None) -> list[str]:
     ensure_adom(log, rpc, adom(topo), "FortiManager")
     add_devices(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
+        build_hub_tunnel_ips(log, topo, rpc, warn)
         build_sdwan(log, topo, rpc, warn)
         # eerst de device-settings (maakt de zones op de FortiGates), daarna pas objecten en policies
         install(log, topo, rpc, warn, devices, only="device")
