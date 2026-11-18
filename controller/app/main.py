@@ -524,8 +524,9 @@ def fmg_call(q: FmgCall):
     topo = load_topology()
     ad = fmg.adom(topo)
     allowed = (f"/pm/wanprof/adom/{ad}", f"/pm/config/adom/{ad}/wanprof/", f"/pm/tmplgrp/adom/{ad}",
-               f"/pm/config/adom/{ad}/obj/firewall/address")
-    if q.method not in ("get", "add", "set", "update", "delete") or not q.url.startswith(allowed):
+               f"/pm/config/adom/{ad}/obj/firewall/address", f"/dvmdb/adom/{ad}/script", "/dvmdb/script",
+               f"/pm/config/adom/{ad}/obj/cli/")
+    if q.method not in ("get", "add", "set", "update", "delete", "exec") or not q.url.startswith(allowed):
         raise HTTPException(400, "alleen get/add/set/update/delete op het wanprof-sjabloon van het lab-ADOM")
     extra = {"option": q.option} if q.option else {}
     rpc = fmg.client(topo)
