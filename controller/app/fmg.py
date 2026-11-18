@@ -462,7 +462,12 @@ def _add_service(log, warn, rpc: JsonRpc, base: str, svc: dict, tname: str):
 
 
 # De orchestratie laat 'redistribute connected' uit staan: zonder dit adverteren hubs en branches hun LAN niet.
-_REDISTRIBUTE = ["config router bgp", '  config redistribute "connected"', "    set status enable", "  end", "end"]
+# Alleen het LAN (port4) adverteren. Zonder filter adverteert een branch ook de tunnel-IP's van zijn ADVPN-shortcuts als /32; de hub
+# stuurt het antwoord op BGP naar de andere branch dan via die branch in plaats van via de eigen tunnel, en de BGP-sessie valt weg.
+_REDISTRIBUTE = ["config router route-map", '  edit "CONNECTED-LAN"', "    config rule", "      edit 1",
+                 '        set match-interface "port4"', "      next", "    end", "  next", "end",
+                 "config router bgp", '  config redistribute "connected"', "    set status enable",
+                 '    set route-map "CONNECTED-LAN"', "  end", "end"]
 
 
 def _hub_tunnel_script(topo, h: int) -> str:
