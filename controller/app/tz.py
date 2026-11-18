@@ -86,6 +86,11 @@ def apply_all(log, topo):
         except Exception as e:  # noqa: BLE001
             problems.append(f"{label}: {e}")
             log(f"⚠ tijdzone {label}: {e}")
+    for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
+        try:
+            console.set_idle_timeout(log, ip, get_state().get("admin_password", ""), label)
+        except Exception as e:  # noqa: BLE001
+            problems.append(f"sessie-timeout {label}: {e}")
     rpc = fmg.client(topo)
     try:
         fortigates(log, topo, rpc, problems.append)

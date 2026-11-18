@@ -174,6 +174,20 @@ def ensure_adom_mode(log, ip: str, password: str, label: str):
         cli.close()
 
 
+def set_idle_timeout(log, ip: str, password: str, label: str, minutes: int = 480):
+    """GUI/CLI-sessie van admin: standaard 5 minuten, hier 8 uur (480 minuten is het maximum)."""
+    cli = Cli(ip, password)
+    try:
+        cli.run("config system admin setting")
+        cli.run(f"set idle_timeout {minutes}")
+        out = cli.run("end", timeout=30)
+        shown = cli.run("show full-configuration system admin setting", timeout=30)
+        m = re.search(r"idle_timeout\s+(\d+)", shown)
+        log(f"[{label}] sessie-timeout {m.group(1) if m else '?'} minuten" + (f" ({out.strip()[-80:]})" if "rror" in out else ""))
+    finally:
+        cli.close()
+
+
 def allow_vm_devices(log, ip: str, password: str, label: str):
     """FortiManager weigert FortiGate-VM's met 'VM device is not allowed' tenzij fgfm-allow-vm aan staat."""
     cli = Cli(ip, password)

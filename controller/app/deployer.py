@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-from . import faz, fmg, fortigate, updates
+from . import console, faz, fmg, fortigate, updates
 from .config import (DATA, ROOT, UPLOADS, generated_secret, get_state, inventory, load_host, load_topology,
                      mgmt_gw, netmask, nodes_by_role, prefixlen, segment_map, template_vmid, update_state,
                      uplink_tag, vm_name)
@@ -497,6 +497,11 @@ def provision_all(log, topo):
         except Exception as e:  # noqa: BLE001
             log(f"⚠ tijdzone {label}: {e}")
     tz.containers(log, topo)
+    for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
+        try:
+            console.set_idle_timeout(log, ip, get_state().get("admin_password", ""), label)
+        except Exception as e:  # noqa: BLE001
+            log(f"⚠ sessie-timeout {label}: {e}")
 
 
 def deploy_all(log):
