@@ -215,6 +215,10 @@ guides:
       - buttons:
           - {label: "Alles herstellen", action: {do: clear}}
       - tip: "Gegenereerde scripts bewaar je met Save Script (Device Manager > Scripts); controleer ze altijd voordat je ze uitvoert. De PSK in een VPN-script pas je handmatig aan."
+      - image: fmg-fortiai-script.jpg
+        caption: "FortiAI in FortiManager (Script Assistant): uit één zin ontstaat een CLI-script voor twee firewalladressen, met Copy code, Save script en Save CLI Template, plus uitleg."
+      - image: fmg-fortiai-vpn.jpg
+        caption: "VPN Assistant: 'Check the VPN tunnel status' opent een widget waarin je de FortiGates en tunnels kiest die FortiAI moet controleren. Rechtsonder staat het resterende maandelijkse tokenbudget."
       - ai: all
 
   - id: reporting
