@@ -52,7 +52,7 @@ scenarios:
       - {where: FortiAnalyzer, prompt: "Why did the Teams traffic from FGT-BR1 change transport in the last 30 minutes?", expect: "Verwijst naar SLA-overschrijding op port2 (latency/jitter/loss) en de rule VOICE-VIDEO"}
       - {where: FortiAnalyzer, prompt: "Show latency, jitter and packet loss for FGT-BR1 per SD-WAN member over the last hour.", expect: "Piek op underlay A vanaf het moment van de impairment"}
       - {where: FortiAnalyzer, prompt: "Was there a service impact for users in Utrecht? Compare session counts before and after.", expect: "Sessies zijn doorgeschoven, niet weggevallen"}
-      - {where: FortiManager, prompt: "Which SD-WAN rule handles Microsoft Teams, and which SLA does it use?", expect: "VOICE-VIDEO met health-check HC-DC (latency 80 ms, jitter 20 ms, loss 2%)"}
+      - {where: FortiManager, prompt: "Which SD-WAN rule handles Microsoft Teams, and which SLA does it use?", expect: "VOICE-VIDEO met health-check DC_SLA (latency 80 ms, jitter 20 ms, loss 2%)"}
     cleanup:
       - {do: clear}
 
@@ -154,7 +154,7 @@ scenarios:
     fortiai:
       - {where: FortiManager, prompt: "Explain the SD-WAN overlay template LAB-OVERLAY: which tunnels, BGP design and ADVPN settings does it create?", expect: "Hubs/spokes, per-underlay IPsec, iBGP, ADVPN-shortcuts"}
       - {where: FortiManager, prompt: "The script LAB-BAD-SCRIPT failed on FGT-BR1. What is wrong and how do I fix it?", expect: "Verklaart de ongeldige 'dst'-referentie (address object bestaat niet)"}
-      - {where: FortiManager, prompt: "Write a CLI script that adds an SD-WAN service rule for Zoom that prefers the lowest-latency member within SLA HC-DC.", expect: "Script; je past het toe via Device Manager > Scripts"}
+      - {where: FortiManager, prompt: "Write a CLI script that adds an SD-WAN service rule for Zoom that prefers the lowest-latency member within SLA DC_SLA.", expect: "Script; je past het toe via Device Manager > Scripts"}
       - {where: FortiManager, prompt: "What changed on FGT-BR3 in the last 24 hours?", expect: "Revisielijst en diff van de installaties"}
     cleanup: []
 

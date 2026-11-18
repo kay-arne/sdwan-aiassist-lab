@@ -332,7 +332,7 @@ def sdwan_rules(topo, members: list[dict]) -> tuple[list[dict], list[dict], list
             svc.update({"mode": "sla", "priority-zone": order, "health-check": [hc["name"]],
                         "sla": [{"health-check": hc["name"], "id": [1]}]})
         else:       # 'cost': goedkoopste link (laatste underlay), nooit over de overlay
-            svc.update({"mode": "priority", "priority-members": [by_underlay[last_u]]})
+            svc.update({"mode": "priority", "priority-members": [by_underlay[last_u]], "health-check": [hc["name"]]})
         if r.get("isdb"):
             svc["internet-service"] = "enable"
             svc["internet-service-name"] = r["isdb"]
@@ -381,6 +381,47 @@ def _attach(rpc: JsonRpc, ad: str, group: str, oid: int, tname: str):
     rpc.update(url, {"template group setting": setting})
 
 
+def _add_service(log, warn, rpc: JsonRpc, base: str, svc: dict, tname: str):
+    """Rule toevoegen. Onbekende ISDB-namen (de ISDB van deze FortiManager kent niet alles) worden per naam
+    uitgefilterd; een rule zonder enige geldige selector wordt overgeslagen (hij zou al het verkeer pakken)."""
+    url = f"{base}/service"
+    try:
+        _put_row(rpc, url, svc["id"], svc)
+        log(f"[FortiManager] SD-WAN rule {svc['name']} in {tname}")
+        return
+    except RpcError as e:
+        err = e
+    names = svc.get("internet-service-name")
+    if not names or "internet-service-name" not in str(err):
+        warn(f"SD-WAN rule {svc['name']}: {err}")
+        return
+    valid = []
+    for n in names:
+        probe = {**svc, "id": 99, "name": "probe", "internet-service-name": [n]}
+        try:
+            rpc.add(url, probe)
+            valid.append(n)
+        except RpcError:
+            pass
+        finally:
+            try:
+                rpc.delete(f"{url}/99")
+            except RpcError:
+                pass
+    skipped = [n for n in names if n not in valid]
+    if not valid:
+        warn(f"SD-WAN rule {svc['name']} overgeslagen: geen van de ISDB-namen {names} is bekend op deze FortiManager "
+             "(ISDB bijwerken via FortiGuard, of de namen in topology.yaml aanpassen)")
+        return
+    try:
+        _put_row(rpc, url, svc["id"], {**svc, "internet-service-name": valid})
+        log(f"[FortiManager] SD-WAN rule {svc['name']} in {tname} (ISDB: {', '.join(valid)})")
+        if skipped:
+            warn(f"SD-WAN rule {svc['name']}: onbekende ISDB-namen overgeslagen: {', '.join(skipped)}")
+    except RpcError as e:
+        warn(f"SD-WAN rule {svc['name']}: {e}")
+
+
 def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
     """SD-WAN-templates voor hubs en branches: zones, members (underlay + overlay), health-check en rules,
     opgenomen in de template-groepen die de overlay-orchestratie heeft gemaakt."""
@@ -420,11 +461,7 @@ def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
                 except RpcError as e:
                     warn(f"health-check {hc['name']}: {e}")
             for svc in services:
-                try:
-                    _put_row(rpc, f"{base}/service", svc["id"], svc)
-                    log(f"[FortiManager] SD-WAN rule {svc['name']} in {tname}")
-                except RpcError as e:     # één onbekende ISDB-naam mag de rest niet tegenhouden
-                    warn(f"SD-WAN rule {svc['name']}: {e}")
+                _add_service(log, warn, rpc, base, svc, tname)
         groups = ([f"{sd['template']}_HUB{i}" for i in range(1, len(hubs(topo)) + 1)] if role == "hub"
                   else [f"{sd['template']}_BRANCH"])
         for grp in groups:

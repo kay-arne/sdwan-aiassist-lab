@@ -21,7 +21,7 @@ Toon in FortiManager:
 1. *Device Manager → Provisioning Templates → SD-WAN Overlay Templates* (in 7.6: *SD-WAN Manager*): template `LAB-OVERLAY`
    met twee hubs en de spokes-groep. Eén definitie, vijf FortiGates.
 2. De gegenereerde **IPsec-, BGP-, SD-WAN- en CLI-templates** en de device-groep `SPOKES`.
-3. De **SD-WAN-template**: zones, health-check `HC-DC` (SLA: 80 ms latency, 20 ms jitter, 2% verlies) en de vier rules
+3. De **SD-WAN-template**: zones, health-check `DC_SLA` (SLA: 80 ms latency, 20 ms jitter, 2% verlies) en de vier rules
    (VOICE-VIDEO, BUSINESS-SAAS, STREAMING, DC-APPS).
 4. Het **policy package** `LAB-PKG` met UTM-profielen en volledige logging.
 

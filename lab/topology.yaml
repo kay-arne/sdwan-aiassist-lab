@@ -76,7 +76,7 @@ sdwan:
     overlay: OVERLAY
     underlay: UNDERLAY
   health_check:
-    name: HC-DC
+    name: DC_SLA
     server: 10.21.0.10       # in AMS; hubs routeren naar elkaar
     protocol: ping
     sla: {latency_ms: 80, jitter_ms: 20, loss_pct: 2}
