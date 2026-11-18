@@ -508,6 +508,34 @@ def fmg_get(q: FmgQuery):
         rpc.logout()
 
 
+class FmgCall(BaseModel):
+    method: str                          # get | add | set | update | delete
+    url: str
+    data: Optional[dict | list] = None
+    option: Optional[str] = None
+
+
+@app.post("/api/fmg/call")
+def fmg_call(q: FmgCall):
+    """Ontwikkelhulp: JSON-RPC-aanroep naar FortiManager, beperkt tot het SD-WAN-sjabloon van het lab-ADOM
+    (/pm/wanprof/ en /pm/config/adom/<adom>/wanprof/). Alles daarbuiten is alleen-lezen via /api/fmg/get."""
+    from . import fmg
+    from .jsonrpc import RpcError
+    topo = load_topology()
+    ad = fmg.adom(topo)
+    allowed = (f"/pm/wanprof/adom/{ad}", f"/pm/config/adom/{ad}/wanprof/")
+    if q.method not in ("get", "add", "set", "update", "delete") or not q.url.startswith(allowed):
+        raise HTTPException(400, "alleen get/add/set/update/delete op het wanprof-sjabloon van het lab-ADOM")
+    extra = {"option": q.option} if q.option else {}
+    rpc = fmg.client(topo)
+    try:
+        return {"url": q.url, "data": rpc.call(q.method, q.url, q.data, **extra)}
+    except RpcError as e:
+        return {"url": q.url, "error": str(e)}
+    finally:
+        rpc.logout()
+
+
 @app.get("/api/fortiai/status")
 def fortiai_status():
     return faz.fortiai_status(load_topology())
