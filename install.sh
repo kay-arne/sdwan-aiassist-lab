@@ -634,6 +634,7 @@ Environment=SDWLAB_ROOT=/opt/sdwlab
 WantedBy=multi-user.target
 EOF
 pct exec "$CTID" -- systemctl daemon-reload
+pct exec "$CTID" -- bash -c 'ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime && echo Europe/Amsterdam > /etc/timezone' || true
 pct exec "$CTID" -- systemctl enable --now sdwlab.service
 
 c_ok "Klaar."

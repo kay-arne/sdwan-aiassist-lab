@@ -63,6 +63,14 @@ def apply_all(log, topo):
     tz = name(topo)
     problems: list[str] = []
     containers(log, topo)
+    try:                                    # de controller zelf (draait als root): joblog-tijden
+        import os
+        os.symlink(f"/usr/share/zoneinfo/{tz}", "/etc/localtime.new")
+        os.replace("/etc/localtime.new", "/etc/localtime")
+        open("/etc/timezone", "w").write(tz + "\n")
+        log(f"tijdzone {tz} op de controller")
+    except OSError as e:
+        log(f"⚠ tijdzone controller: {e}")
     for label, ip in (("FortiManager", fmg.mgmt_ip(topo)), ("FortiAnalyzer", faz.mgmt_ip(topo))):
         try:
             appliance(log, ip, label, tz)

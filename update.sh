@@ -17,6 +17,11 @@ cd "$ROOT"
 
 say() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*"; }
 
+# tijdzone van de controller zelf (logregels en joblog)
+if [[ -e /usr/share/zoneinfo/Europe/Amsterdam && "$(readlink -f /etc/localtime 2>/dev/null)" != /usr/share/zoneinfo/Europe/Amsterdam ]]; then
+  ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime && echo Europe/Amsterdam > /etc/timezone
+fi
+
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 OLD="$(git rev-parse HEAD)"
 say "Huidige versie: $(git log -1 --format='%h %s' HEAD) (branch $BRANCH)"
