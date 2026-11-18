@@ -56,7 +56,7 @@ scenarios:
       - {where: FortiAnalyzer, prompt: "Show SD-WAN SLA events for FGT-BR1, past 30 minutes.", expect: "Loganalyse op SD-WAN-logs (SLA-wissels, health-check DC_SLA)"}
       - {where: FortiAnalyzer, prompt: "Filter traffic logs for FGT-BR1, application Microsoft.Teams, past hour. Which interface was used?", expect: "Sessies eerst over port2, na de impairment over port3 (appnaam hangt van de signature af)"}
       - {where: FortiAnalyzer, prompt: "Generate a bar chart of sessions per outgoing interface for FGT-BR1, past hour.", expect: "Grafiek laat het verschuiven van underlay A naar B zien"}
-      - {where: FortiManager, prompt: "Check the VPN tunnel status.", expect: "VPN Assistant: kies FGT-BR1 in de widget; tunnels over underlay A vertraagd of down, VPN2 gezond"}
+      - {where: FortiManager, prompt: "VPN Assistant: check the status of all IPsec tunnels on FGT-BR1.", expect: "VPN Assistant: kies FGT-BR1 in de widget; tunnels over underlay A vertraagd of down, VPN2 gezond"}
     cleanup:
       - {do: clear}
 
@@ -74,8 +74,8 @@ scenarios:
       - {do: sleep, seconds: 90}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show VPN tunnel down events for FGT-BR2, past 15 minutes.", expect: "Tunnel-down-events (HUB1-VPN1, HUB2-VPN1)"}
-      - {where: FortiAnalyzer, prompt: "Create an event handler for IPsec tunnel down on FGT-BR2.", expect: "Event handler met naam en regelsamenvatting; daarna te bekijken en wijzigen in Event Handlers"}
-      - {where: FortiManager, prompt: "Diagnose the VPN tunnel.", expect: "VPN Assistant: kies FGT-BR2; tunnels over underlay A down, samenvatting van mogelijke oorzaken"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler for IPsec tunnel down events on FGT-BR2.", expect: "FortiAI vraagt één bevestiging: antwoord \"Yes\"; er opent een venster met de regel, klik Create"}
+      - {where: FortiManager, prompt: "VPN Assistant: diagnose the IPsec tunnels on FGT-BR2.", expect: "VPN Assistant: kies FGT-BR2; tunnels over underlay A down, samenvatting van mogelijke oorzaken"}
     cleanup:
       - {do: clear}
 
@@ -91,9 +91,9 @@ scenarios:
       - {do: vm, site: hub-ams, op: stop}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Show VPN tunnel down events, past 10 minutes, group by device.", expect: "Per spoke de HUB1-tunnels (6 in totaal)"}
-      - {where: FortiAnalyzer, prompt: "Generate a bar chart of sessions by outgoing interface, past 30 minutes.", expect: "Verkeer is naar de tunnels van HUB2 verschoven"}
-      - {where: FortiManager, prompt: "Check the VPN tunnel status.", expect: "VPN Assistant: kies een spoke; HUB1-tunnels down, HUB2-tunnels up"}
+      - {where: FortiAnalyzer, prompt: "Show VPN tunnel down events for FGT-BR1, past 10 minutes.", expect: "Per spoke de HUB1-tunnels (6 in totaal)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of sessions by outgoing interface, past hour.", expect: "Verkeer is naar de tunnels van HUB2 verschoven"}
+      - {where: FortiManager, prompt: "VPN Assistant: check the status of all IPsec tunnels on FGT-BR1.", expect: "VPN Assistant: kies een spoke; HUB1-tunnels down, HUB2-tunnels up"}
     cleanup:
       - {do: vm, site: hub-ams, op: start}
       - {do: clear}
@@ -110,7 +110,7 @@ scenarios:
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show top 5 applications by bytes for FGT-BR3, past hour.", expect: "Netflix / streaming bovenaan"}
       - {where: FortiAnalyzer, prompt: "Generate a pie chart of sessions by outgoing interface for FGT-BR3, past hour.", expect: "Streaming op port3 (underlay B), conform rule STREAMING"}
-      - {where: FortiManager, prompt: "Create a CLI script for an SD-WAN service rule that sends Spotify traffic to the lowest-cost member.", expect: "Script Assistant: CLI; Save Script of Save CLI Template; review voor uitvoeren"}
+      - {where: FortiManager, prompt: "Script Assistant: Write a FortiGate CLI script, vdom root. Under config system sdwan, config service, create rule id 20 named SPOTIFY: internet-service enable, internet-service-name Spotify-Spotify, mode priority, priority-members 2. Output only the script.", expect: "Script Assistant: CLI; Save Script of Save CLI Template; review voor uitvoeren"}
     cleanup:
       - {do: traffic_stop}
 
@@ -125,10 +125,10 @@ scenarios:
       - {do: traffic, site: br2, preset: security}
       - {do: sleep, seconds: 240}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "List destination IPs of top threats, past 7 days.", expect: "Adressen plus korte analyse en mitigatie-advies"}
+      - {where: FortiAnalyzer, prompt: "Show top threats for FGT-BR2, past hour.", expect: "Adressen plus korte analyse en mitigatie-advies"}
       - {where: FortiAnalyzer, prompt: "Perform a security reputation check for <IP uit het vorige antwoord>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); vraag daarna om mitigatie"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs connected to that IP.", expect: "Taartdiagram met Traffic-Gen-bronnen 10.12.0.50-55"}
-      - {where: FortiAnalyzer, prompt: "Create an event handler for that IP.", expect: "Event handler met naam en regelsamenvatting"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs for FGT-BR2 traffic, past hour.", expect: "Taartdiagram met Traffic-Gen-bronnen 10.12.0.50-55"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler for web filter blocks on FGT-BR2.", expect: "Event handler met naam en regelsamenvatting"}
       - {where: FortiAnalyzer, prompt: "List incidents created in the past 24 hours.", expect: "Incidenten uit event handlers (kan leeg zijn); vraag door naar details en affected endpoints"}
       - {where: FortiAnalyzer, prompt: "Produce an incident report for incident <nummer>.", expect: "Rapport met download-icoon in het antwoord"}
     cleanup:
@@ -157,10 +157,10 @@ scenarios:
       - {do: clear}
     fortiai:
       - {where: FortiManager, prompt: "Script Assistant: Create firewall addresses for 10.2.2.1 and awesome-service.com.", expect: "Script met twee adressen; Copy Code, Save Script, Save CLI Template"}
-      - {where: FortiManager, prompt: "Script Assistant: Create a CLI script that adds an SD-WAN service rule for Zoom that prefers the lowest-latency member.", expect: "CLI voor config system sdwan / service; review voor uitvoeren"}
+      - {where: FortiManager, prompt: "Script Assistant: Write a FortiGate CLI script, vdom root. Under config system sdwan, config service, create rule id 21 named ZOOM: internet-service enable, internet-service-name Zoom.us-Zoom.Meeting, mode sla, health-check DC_SLA. Output only the script.", expect: "CLI voor config system sdwan / service; review voor uitvoeren"}
       - {where: FortiManager, prompt: "VPN Assistant: Help me configure site-to-site VPN.", expect: "Kies Select Devices (of upload topologie-afbeelding, max 5 MB); controleer samenvatting; PSK handmatig aanpassen"}
-      - {where: FortiManager, prompt: "VPN Assistant: Check the VPN tunnel status.", expect: "Widget: kies FGT-BR1 en Confirm; rapport van de tunnels"}
-      - {where: FortiManager, prompt: "VPN Assistant: Diagnose the VPN tunnel.", expect: "Diagnose met samenvatting; vraag om oplossing, installeer en controleer opnieuw"}
+      - {where: FortiManager, prompt: "VPN Assistant: check the status of all IPsec tunnels on FGT-BR1.", expect: "Widget: kies FGT-BR1 en Confirm; rapport van de tunnels"}
+      - {where: FortiManager, prompt: "VPN Assistant: diagnose the IPsec tunnels on FGT-BR1.", expect: "Diagnose met samenvatting; vraag om oplossing, installeer en controleer opnieuw"}
       - {where: FortiManager, prompt: "IoT Device Analysis: What do I need to do to detect IoT devices through my FortiGates?", expect: "Alleen uitleg van vereisten; dit lab heeft geen IoT-apparaten"}
     cleanup: []
 
@@ -191,12 +191,12 @@ scenarios:
     fortiai:
       - {where: FortiAnalyzer, prompt: "Please help fetch the latest incident.", expect: "Incidentdetails met het getroffen IP (er moet een incident bestaan: maak er een in Incidents & Events vanuit een event)"}
       - {where: FortiAnalyzer, prompt: "Check the reputation of <publiek IP uit het incident>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); vraag daarna om mitigatie-advies"}
-      - {where: FortiAnalyzer, prompt: "Check if more endpoints are affected.", expect: "Log-analyse: andere bronnen die naar dezelfde bestemming praten (hier de Traffic-Gen-bronnen 10.12.0.5x)"}
+      - {where: FortiAnalyzer, prompt: "Show top source IPs by sessions for FGT-BR2, past hour.", expect: "Log-analyse: andere bronnen die naar dezelfde bestemming praten (hier de Traffic-Gen-bronnen 10.12.0.5x)"}
       - {where: FortiAnalyzer, prompt: "Open Threat Hunting.", expect: "FortiAI opent de pagina zonder dat je het gesprek verlaat"}
       - {where: FortiAnalyzer, prompt: "Open Log View.", expect: "FortiAI opent Log View vanuit het gesprek"}
       - {where: FortiAnalyzer, prompt: "Update the incident and hand off.", expect: "Notitie en status aan het incident; ruimt de overdracht op"}
       - {where: FortiAnalyzer, prompt: "Generate an incident report for <incidentnummer>.", expect: "Rapport met download-icoon in het antwoord"}
-      - {where: FortiAnalyzer, prompt: "Create an event handler connecting to <publiek IP>.", expect: "FortiAI stuurt je eerst naar Log View, past een filter toe en maakt daarna de event handler (naam en regelsamenvatting in de chat)"}
+      - {where: FortiAnalyzer, prompt: "Create an event handler for IPsec tunnel down events on FGT-BR2.", expect: "Antwoord \"Yes\" op de bevestigingsvraag; er opent een venster met de regel, klik Create"}
       - {where: FortiAnalyzer, prompt: "Can FortiAnalyzer generate a visual on threats?", expect: "FortiAI legt uit wat het kan renderen"}
       - {where: FortiAnalyzer, prompt: "What type of charts can be rendered?", expect: "Antwoord: taartdiagram en staafdiagram (ook gegroepeerd/gestapeld)"}
       - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs connected to <publiek IP>.", expect: "Taartdiagram met de bronnen"}
@@ -215,10 +215,10 @@ scenarios:
       - {where: FortiManager, prompt: "IoT Device Analysis: Check the prerequisites for my FortiGates.", expect: "Widget: kies de FortiGates; het resultaat toont dat dit lab er niet aan voldoet (geen device detection); goed om de nauwkeurigheid te laten zien"}
       - {where: FortiManager, prompt: "VPN Assistant: What can the VPN configuration assistant do?", expect: "Site-to-site, dial-up en tunnelcontrole/diagnose"}
       - {where: FortiManager, prompt: "VPN Assistant: Create a site-to-site VPN. I would like to select devices.", expect: "Kies Select Devices (of upload een topologie-afbeelding, max 5 MB); controleer de samenvatting en bevestig; je krijgt een script per FortiGate"}
-      - {where: FortiManager, prompt: "VPN Assistant: Check the VPN tunnel status.", expect: "Widget: kies FGT-BR1 en Confirm"}
-      - {where: FortiManager, prompt: "VPN Assistant: Yes, diagnose the downed tunnel.", expect: "Diagnose met samenvatting van de problemen (na het wegvallen van WAN-A)"}
-      - {where: FortiManager, prompt: "VPN Assistant: Yes, please fix the VPN issue.", expect: "FortiAI stelt een oplossing voor; installeer daarna via de wizard en controleer de status opnieuw"}
+      - {where: FortiManager, prompt: "VPN Assistant: check the status of all IPsec tunnels on FGT-BR1.", expect: "Widget: kies FGT-BR1 en Confirm"}
+      - {where: FortiManager, prompt: "VPN Assistant: diagnose the IPsec tunnels on FGT-BR1.", expect: "Diagnose met samenvatting van de problemen (na het wegvallen van WAN-A)"}
+      - {where: FortiManager, prompt: "VPN Assistant: fix the detected VPN issues on FGT-BR1.", expect: "FortiAI stelt een oplossing voor; installeer daarna via de wizard en controleer de status opnieuw"}
       - {where: FortiManager, prompt: "Script Assistant: What can the CLI script assistant do?", expect: "Uitleg: CLI- en Jinja-scripts, meta variables"}
-      - {where: FortiManager, prompt: "Script Assistant: Create a CLI script that assigns IP addresses to the LAN interface port4 of my branch FortiGates using 10.101.branch_id.1/24, where branch_id is a metadata variable. Also set the hostname with the pattern enterprise_branch_<branch_id>.", expect: "Script met meta variable; Save CLI Template, wijs het toe aan een groep en installeer (in het lab alleen tonen, niet installeren)"}
+      - {where: FortiManager, prompt: "Script Assistant: Write a FortiGate CLI script, vdom root. Set system global hostname to enterprise_branch_$(branch_id) and system interface port4 ip to 10.101.$(branch_id).1/24, where branch_id is a FortiManager meta variable. Output only the script.", expect: "Script met $(branch_id); Save CLI Template. Laat het script alleen zien, installeer het niet op de lab-FortiGates"}
     cleanup:
       - {do: clear}
