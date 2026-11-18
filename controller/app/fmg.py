@@ -286,6 +286,24 @@ def build_overlay(log, topo, rpc: JsonRpc, warn):
 # --------------------------------------------------------------------------------------
 # SD-WAN: SLA, rules, firewall policy
 # --------------------------------------------------------------------------------------
+def h2h_links(topo, h: int) -> list[dict]:
+    """Hub-naar-hub-tunnels van hub h (twee hubs: per underlay één tunnel, op beide hubs H2H-VPN<u>); tunnel-IP's in
+    10.10.250.0/24: de lagere hub krijgt .(10u+1), de hogere .(10u+2)."""
+    out = []
+    hub_sites = hubs(topo)
+    me = hub_sites[h - 1]
+    for k, other in enumerate(hub_sites, 1):
+        if k == h:
+            continue
+        for u in topo["sdwan"]["underlays"]:
+            n = int(u["id"])
+            low, high = (f"10.10.250.{10 * n + 1}", f"10.10.250.{10 * n + 2}")
+            mine, theirs = (low, high) if h < k else (high, low)
+            key = "wan1" if n == 1 else "wan2"
+            out.append({"name": f"H2H-VPN{n}", "port": u["port"], "remote_gw": other[key], "ip": mine, "remote_ip": theirs})
+    return out
+
+
 def sdwan_template_names(topo) -> tuple[str, str]:
     base = topo["sdwan"]["template"]
     return f"{base}-SDWAN-HUB", f"{base}-SDWAN-BRANCH"
@@ -301,6 +319,8 @@ def _members(topo, role: str) -> list[dict]:
     if role == "hub":
         for u in sd["underlays"]:
             out.append({"interface": f"VPN{u['id']}", "zone": sd["zones"]["overlay"]})
+        for u in sd["underlays"]:                        # hub-naar-hub-tunnels (zelfde naam op beide hubs) in de overlay-zone
+            out.append({"interface": f"H2H-VPN{u['id']}", "zone": sd["zones"]["overlay"]})
     else:
         for h in range(1, len(hubs(topo)) + 1):
             for u in sd["underlays"]:
@@ -496,6 +516,56 @@ def build_hub_tunnel_ips(log, topo, rpc: JsonRpc, warn):
         warn(f"branch BGP-redistribute: {e}")
 
 
+def build_hub_to_hub(log, topo, rpc: JsonRpc, warn):
+    """IPsec-tunnels tussen de hubs (per underlay één), tunnel-IP's en iBGP-buren, zodat elke hub ook de LAN's achter de
+    andere hub en de spokes van de andere hub kent. De tunnels staan in de device-database (dan bestaat de interface
+    voor de SD-WAN-members); de BGP-buur gaat via een CLI-template in de CLI-groep van de hub."""
+    if len(hubs(topo)) < 2:
+        return
+    from .config import generated_secret
+    ad, base = adom(topo), topo["sdwan"]["template"]
+    psk = generated_secret("h2h_psk")
+    for h, site in enumerate(hubs(topo), 1):
+        dev = site["fgt_name"]
+        links = h2h_links(topo, h)
+        for ln in links:
+            root = f"/pm/config/device/{dev}/vdom/root"
+            try:
+                rpc.upsert(f"{root}/vpn/ipsec/phase1-interface",
+                           {"name": ln["name"], "interface": [ln["port"]], "ike-version": 2, "peertype": "any",
+                            "net-device": "disable", "proposal": ["aes256-sha256"], "dhgrp": [14], "dpd": "on-idle",
+                            "remote-gw": ln["remote_gw"], "psksecret": [psk], "add-route": "disable"})
+                rpc.upsert(f"{root}/vpn/ipsec/phase2-interface",
+                           {"name": ln["name"], "phase1name": ln["name"], "proposal": ["aes256-sha256"],
+                            "auto-negotiate": "enable"})
+                rpc.upsert(f"{root}/system/interface",
+                           {"name": ln["name"], "vdom": ["root"], "type": "tunnel", "interface": [ln["port"]],
+                            "ip": [ln["ip"], "255.255.255.255"], "remote-ip": [ln["remote_ip"], "255.255.255.255"],
+                            "allowaccess": ["ping"]})
+            except RpcError as e:
+                warn(f"hub-naar-hub {dev} {ln['name']}: {e}")
+        script = ["config router bgp", "  config neighbor"]
+        for ln in links:
+            script += [f'    edit "{ln["remote_ip"]}"', f"      set remote-as {topo['sdwan']['as_number']}",
+                       "      set next-hop-self enable", "      set next-hop-self-rr enable", "      set soft-reconfiguration enable",
+                       f'      set update-source "{ln["name"]}"', "    next"]
+        script += ["  end", "end"]
+        name = f"{base}_HUB{h}_H2H_BGP"
+        try:
+            _put_row(rpc, f"/pm/config/adom/{ad}/obj/cli/template", name,
+                     {"name": name, "type": "cli", "option": "sdwan-overlay", "script": "\n".join(script) + "\n",
+                      "description": "SD-WAN & FortiAI Lab: iBGP tussen de hubs"})
+            grp_url = f"/pm/config/adom/{ad}/obj/cli/template-group/{base}_HUB{h}_CLIGRP"
+            grp = rpc.get(grp_url)
+            grp = grp[0] if isinstance(grp, list) else grp
+            members = list(grp.get("member") or [])
+            if name not in members:
+                rpc.update(grp_url, {"member": members + [name]})
+        except (RpcError, AttributeError, TypeError) as e:
+            warn(f"hub-naar-hub BGP {dev}: {e}")
+    log(f"[FortiManager] hub-naar-hub-tunnels ({len(topo['sdwan']['underlays'])} per hub) en iBGP aangemaakt")
+
+
 def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
     """SD-WAN-templates voor hubs en branches: zones, members (underlay + overlay), health-check en rules,
     opgenomen in de template-groepen die de overlay-orchestratie heeft gemaakt."""
@@ -510,7 +580,11 @@ def build_sdwan(log, topo, rpc: JsonRpc, warn) -> bool:
             oid = _wanprof_oid(rpc, ad, tname, f"SD-WAN & FortiAI Lab: {role}s")
             rpc.update(base, {"status": "enable"})
             for z in (sd["zones"]["underlay"], sd["zones"]["overlay"]):
-                _put_row(rpc, f"{base}/zone", z, {"name": z})
+                row = {"name": z}
+                if role == "branch" and z == sd["zones"]["overlay"] and sd.get("advpn_2"):
+                    # ADVPN 2.0: SD-WAN kiest zelf tussen shortcut-tunnels en hub-tunnels op basis van de SLA van de peer
+                    row.update({"advpn-select": "enable", "advpn-health-check": [sd["health_check"]["name"]]})
+                _put_row(rpc, f"{base}/zone", z, row)
             for m in members:
                 row = {"seq-num": m["seq-num"], "interface": [m["interface"]], "zone": [m["zone"]], "cost": 0}
                 if m.get("gateway"):
@@ -682,6 +756,7 @@ def provision(log, topo, devices=None) -> list[str]:
     set_locations(log, topo, rpc, warn)
     if build_overlay(log, topo, rpc, warn):
         build_hub_tunnel_ips(log, topo, rpc, warn)
+        build_hub_to_hub(log, topo, rpc, warn)
         build_sdwan(log, topo, rpc, warn)
         default_route_via_sdwan(log, topo, rpc, warn)
         # eerst de device-settings (maakt de zones op de FortiGates), daarna pas objecten en policies

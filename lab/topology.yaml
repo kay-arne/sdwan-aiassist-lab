@@ -68,6 +68,7 @@ sdwan:
   authmethod: psk
   as_number: 65000
   advpn: enable
+  advpn_2: true              # ADVPN 2.0 (FortiOS 7.4.2+): SD-WAN-gestuurde shortcut-selectie op de branches
   loopback_ip: 172.16.0.0/16
   overlay_network: 10.10.0.0/16
   underlays:                 # per transport: FortiGate-interface en underlay-naam
