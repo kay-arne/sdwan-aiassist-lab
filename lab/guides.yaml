@@ -1,0 +1,193 @@
+# Labguides: verhaal + knoppen + FortiAI-prompts per hoofdstuk, getoond onder het tabblad "Labguides".
+# Stappen:
+#   {text: ".."}                                     uitleg (**vet** en `code` mogelijk)
+#   {buttons: [{label, action: {do: ..}}]}           acties uit scenarios.yaml (impair, link, clear, traffic, traffic_stop, vm, iperf)
+#   {buttons: [{label, check: health|links, device}]}  toont live SD-WAN-status in de guide
+#   {ai: all | [0, 2]}                               FortiAI-prompts van het scenario (kopieerknop)
+#   {tip: ".."}                                      hint
+#   {access: true} {fortiai_status: true} {docs: true}   inline blokken (alleen in 'start')
+guides:
+  - id: start
+    title: "Aan de slag"
+    summary: "Toegang tot de platformen, FortiAI-status en achtergrondverkeer"
+    steps:
+      - text: >
+          Dit lab bouwt een SD-WAN met **2 hubs** (Amsterdam, Frankfurt) en **3 branches** (Utrecht, Rotterdam, Eindhoven), beheerd met templates
+          vanuit **FortiManager** en gelogd naar **FortiAnalyzer**. **Traffic-Gen** in elke branch genereert verkeer; **FortiAI-Assist**
+          in FortiManager en FortiAnalyzer beantwoordt vragen over wat er gebeurt. Elk hoofdstuk hiernaast is een demo met knoppen om
+          de situatie te veroorzaken en de vragen die je daarna stelt.
+      - text: "**Stap 1: inloggen.** Dit zijn de adressen en gegevens van het lab."
+      - access: true
+      - text: >
+          **Stap 2: achtergrondverkeer.** Na de uitrol draait er continu een mix van zakelijk verkeer, streaming en ongewenst verkeer (webfilter,
+          malware, botnet-DNS). Laat het lab minstens 30 minuten draaien voordat je FortiAI vragen stelt: hoe meer logs, hoe beter de antwoorden.
+      - buttons:
+          - {label: "Achtergrondverkeer starten", action: {do: traffic, site: all, preset: background}}
+          - {label: "Verkeer stoppen", action: {do: traffic_stop, background: false}}
+          - {label: "Alles herstellen", action: {do: clear}}
+      - text: "**Stap 3: FortiAI klaar?** Controleer of FortiManager en FortiAnalyzer een FortiAI-contract hebben en internet bereiken."
+      - fortiai_status: true
+      - tip: >
+          FortiAI werkt alleen met een lokale administrator, een FortiAI-licentie (maandelijks tokenbudget, gedeeld) en uitgaand internet vanaf port1.
+          Houd prompts kort en vraag met tijdvenster; start na ongeveer 10 vragen een nieuwe thread.
+      - text: "**Naslag**"
+      - docs: true
+
+  - id: baseline
+    title: "1. Basislijn"
+    scenario: baseline
+    summary: "Alles gezond: wat weet FortiAnalyzer al?"
+    steps:
+      - text: >
+          Alle links zijn gezond en er loopt normaal gebruikersverkeer. Je laat zien wat FortiAnalyzer al weet en hoe FortiAI daar in gewone
+          taal vragen over beantwoordt, zonder filtersyntax of dashboards.
+      - buttons:
+          - {label: "Links en hubs herstellen", action: {do: clear}}
+          - {label: "Normaal verkeer op alle branches", action: {do: traffic, site: all, preset: normal}}
+      - tip: "Laat het verkeer 5-10 minuten draaien, of gebruik het achtergrondverkeer als dat al langer loopt."
+      - buttons:
+          - {label: "ISP-links bekijken", check: links}
+          - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
+      - text: "**Vraag het FortiAI.** Open FortiAI in FortiAnalyzer (icoon in de banner)."
+      - ai: all
+
+  - id: brownout
+    title: "2. Brownout op underlay A"
+    scenario: brownout
+    summary: "Slechte link: SLA faalt, SD-WAN stuurt verkeer weg"
+    steps:
+      - text: >
+          De internetlink van Utrecht (WAN-A) wordt traag en verliest pakketten: 150 ms, 40 ms jitter, 6% verlies. De SLA van health-check
+          `DC_SLA` (80 ms / 20 ms / 2%) faalt, en de rules VOICE-VIDEO en BUSINESS-SAAS verplaatsen verkeer naar underlay B.
+      - buttons:
+          - {label: "1. Voice-verkeer in Utrecht", action: {do: traffic, site: br1, preset: voice}}
+      - text: "Wacht ongeveer een minuut zodat er een basislijn in de logs staat."
+      - buttons:
+          - {label: "2. Link verslechteren (WAN-A Utrecht)", action: {do: impair, site: br1, transport: A, delay: 150, jitter: 40, loss: 6}}
+      - text: "Wacht twee minuten en kijk dan zelf wat SD-WAN doet:"
+      - buttons:
+          - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
+          - {label: "ISP-links", check: links}
+      - text: "**Vraag het FortiAI.**"
+      - ai: all
+      - buttons:
+          - {label: "Opruimen: link herstellen", action: {do: clear}}
+
+  - id: blackout
+    title: "3. Underlay A valt weg"
+    scenario: blackout
+    summary: "Link down in Rotterdam: tunnels, BGP en failover"
+    steps:
+      - text: >
+          De volledige link WAN-A van Rotterdam gaat down. De IPsec-tunnels over underlay A vallen weg, BGP herconvergeert en het verkeer gaat via
+          underlay B. Het gaat erom hoe snel en wat de impact was.
+      - buttons:
+          - {label: "1. Normaal verkeer in Rotterdam", action: {do: traffic, site: br2, preset: normal}}
+      - text: "Wacht een minuut."
+      - buttons:
+          - {label: "2. WAN-A Rotterdam down", action: {do: link, site: br2, transport: A, state: down}}
+      - text: "Wacht ongeveer 90 seconden en bekijk de status:"
+      - buttons:
+          - {label: "SD-WAN health-check Rotterdam", check: health, device: FGT-BR2}
+          - {label: "ISP-links", check: links}
+      - text: "**Vraag het FortiAI.**"
+      - ai: all
+      - buttons:
+          - {label: "Opruimen: link weer up", action: {do: clear}}
+
+  - id: hub-failure
+    title: "4. Hub Amsterdam valt uit"
+    scenario: hub-failure
+    summary: "Multi-hub: alle spokes schakelen naar Frankfurt"
+    steps:
+      - text: >
+          Het datacenter Amsterdam, inclusief FortiGate-hub, valt uit. De spokes routeren via Frankfurt. Je laat zien dat de multi-hub-overlay
+          werkt en dat de impact te reconstrueren is.
+      - buttons:
+          - {label: "1. Normaal verkeer overal", action: {do: traffic, site: all, preset: normal}}
+      - text: "Wacht een minuut."
+      - buttons:
+          - {label: "2. Hub Amsterdam uitzetten", action: {do: vm, site: hub-ams, op: stop}}
+      - text: "Wacht twee minuten."
+      - buttons:
+          - {label: "SD-WAN health-check Utrecht", check: health, device: FGT-BR1}
+      - text: "**Vraag het FortiAI.**"
+      - ai: all
+      - buttons:
+          - {label: "Opruimen: hub weer aan", action: {do: vm, site: hub-ams, op: start}}
+          - {label: "Alles herstellen", action: {do: clear}}
+
+  - id: streaming-vs-business
+    title: "5. Streaming tegenover bedrijfsapps"
+    scenario: streaming-vs-business
+    summary: "Business intent stuurt verkeer naar de juiste link"
+    steps:
+      - text: >
+          In Eindhoven start een stroom streaming. De rule STREAMING stuurt die naar de goedkoopste link (underlay B), zodat underlay A schoon
+          blijft voor Teams en Salesforce.
+      - buttons:
+          - {label: "Streaming-verkeer in Eindhoven", action: {do: traffic, site: br3, preset: streaming}}
+      - text: "Wacht ongeveer drie minuten."
+      - buttons:
+          - {label: "SD-WAN health-check Eindhoven", check: health, device: FGT-BR3}
+      - text: "**Vraag het FortiAI.** De laatste vraag gebruikt de Script Assistant in FortiManager."
+      - ai: all
+      - buttons:
+          - {label: "Opruimen", action: {do: traffic_stop}}
+
+  - id: security-incident
+    title: "6. Beveiligingsincident"
+    scenario: security-incident
+    summary: "Malware en botnet-DNS: van logs naar incident"
+    steps:
+      - text: >
+          Een host in Rotterdam haalt testmalware (EICAR) op en doet DGA/tunnel-DNS-queries. De FortiGate blokkeert (AV, IPS, DNS-filter);
+          FortiAnalyzer correleert tot events en incidenten. Met FortiAI loop je door: dreigingen opvragen, reputatiecheck, grafiek, event handler,
+          incidentrapport.
+      - buttons:
+          - {label: "Aanvalsverkeer in Rotterdam", action: {do: traffic, site: br2, preset: security}}
+      - text: "Wacht minstens vier minuten, bij voorkeur langer."
+      - tip: "Vragen met <IP> of <nummer> vul je in met het resultaat van de vorige vraag in dezelfde thread. Quarantaine werkt alleen met een gekoppelde connector."
+      - ai: all
+      - buttons:
+          - {label: "Opruimen", action: {do: traffic_stop}}
+
+  - id: throughput
+    title: "7. Doorvoer en bandbreedte"
+    scenario: throughput
+    summary: "iperf3 over de overlay en de grootste verbruikers"
+    steps:
+      - text: "Een iperf3-test van Utrecht naar de server in Amsterdam vult de link; je laat FortiAI de bandbreedte-verbruikers benoemen."
+      - buttons:
+          - {label: "1. Normaal verkeer in Utrecht", action: {do: traffic, site: br1, preset: normal}}
+          - {label: "2. iperf3 Utrecht naar AMS (60 s)", action: {do: iperf, site: br1, to: srv-ams, seconds: 60, streams: 4}}
+      - text: "Wacht tot de test klaar is (zie Joblog) en vraag dan:"
+      - ai: all
+      - buttons:
+          - {label: "Opruimen", action: {do: traffic_stop}}
+
+  - id: config-assist
+    title: "8. Scripts en VPN met FortiAI"
+    scenario: config-assist
+    summary: "Script Assistant en VPN Assistant in FortiManager"
+    steps:
+      - text: >
+          Geen verstoring: FortiAI in FortiManager als co-pilot. Open FortiAI in FortiManager en **kies eerst de assistent** bovenin het venster
+          (Script Assistant, VPN Assistant of IoT Device Analysis).
+      - buttons:
+          - {label: "Alles herstellen", action: {do: clear}}
+      - tip: "Gegenereerde scripts bewaar je met Save Script (Device Manager > Scripts); controleer ze altijd voordat je ze uitvoert. De PSK in een VPN-script pas je handmatig aan."
+      - ai: all
+
+  - id: reporting
+    title: "9. Rapportage en SLA-bewijs"
+    scenario: reporting
+    summary: "Grafieken en rapporten voor management"
+    steps:
+      - text: "Management wil een overzicht per branch. Met FortiAI genereer je grafieken en een rapport."
+      - buttons:
+          - {label: "Normaal verkeer op alle branches", action: {do: traffic, site: all, preset: normal}}
+      - text: "Laat het verkeer even lopen (liefst veel langer) en vraag dan:"
+      - ai: all
+      - buttons:
+          - {label: "Opruimen", action: {do: traffic_stop}}

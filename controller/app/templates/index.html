@@ -17,8 +17,7 @@
     <button data-tab="setup" class="active">1. Setup</button>
     <button data-tab="lab">2. Lab</button>
     <button data-tab="cockpit">3. Cockpit</button>
-    <button data-tab="fortiai">4. FortiAI</button>
-    <button data-tab="access">5. Toegang &amp; gidsen</button>
+    <button data-tab="guides">4. Labguides</button>
   </nav>
   <span id="hoststatus" class="pill bad" hidden>host niet bereikbaar</span>
   <button id="btn-joblog" class="pill joblog" title="Joblog openen" hidden>Joblog<span id="job-dot" class="dot-run" hidden></span></button>
@@ -143,11 +142,10 @@
   <!-- COCKPIT -->
   <section id="tab-cockpit" class="tab">
     <div class="intro">
-      <p>Scenario's veroorzaken een gebeurtenis in het lab (link verslechteren, hub uitzetten, aanvalsverkeer); daarna stel je de
-        bijbehorende <b>FortiAI-Assist</b>-vragen in FortiAnalyzer of FortiManager. <b>Alles herstellen</b> zet links, hubs en verkeer terug.</p>
+      <p>Handmatige bediening van het lab: link verslechteren, verkeer starten, hub uit- en aanzetten. De verhalen met
+        <b>FortiAI-Assist</b>-vragen staan onder <a href="#" data-goto="guides">Labguides</a>. <b>Alles herstellen</b> zet links en hubs terug.</p>
       <div class="row"><button id="btn-reset" class="primary">Alles herstellen</button><button id="btn-traffic-stop">Verkeer stoppen</button></div>
     </div>
-    <div id="scenarios" class="demo-groups"></div>
     <div class="card">
       <div class="card-head"><h2>Handmatig</h2></div>
       <div class="manual">
@@ -172,22 +170,11 @@
   </section>
 
   <!-- FORTIAI -->
-  <section id="tab-fortiai" class="tab">
-    <div class="card">
-      <div class="card-head"><h2>FortiAI-status</h2><button id="btn-ai-status">Controleren</button></div>
-      <p class="help">FortiAI-Assist in FortiManager en FortiAnalyzer 7.6+ draait in de cloud van Fortinet en vereist een
-        <b>FortiAI-licentie</b> (tokens per maand, gedeeld) en uitgaand internet vanaf <b>port1</b>. Alleen lokale administrators
-        kunnen FortiAI gebruiken. De controle leest het AISN-contract (<code>diagnose fmupdate dbcontract</code>).</p>
-      <div id="ai-status" class="muted">-</div>
+  <section id="tab-guides" class="tab">
+    <div class="guides">
+      <nav id="guide-nav" class="guide-nav"></nav>
+      <article id="guide-body" class="guide-body card"></article>
     </div>
-    <div class="card"><div class="card-head"><h2>Prompts per use case</h2><input id="ai-filter" placeholder="filter…" size="24"></div>
-      <div id="ai-prompts"></div></div>
-  </section>
-
-  <!-- ACCESS -->
-  <section id="tab-access" class="tab">
-    <div class="card"><h2>Toegang</h2><div id="access" class="access"></div></div>
-    <div class="card"><h2>Gidsen en praktijkkennis</h2><div id="docs" class="doclist"></div></div>
   </section>
 
   <!-- UPDATES -->

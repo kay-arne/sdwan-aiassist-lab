@@ -372,3 +372,18 @@ button.small { padding: 2px 10px; font-size: 12px; }
 .fftable { overflow: visible; }
 .ffbtns { flex-wrap: nowrap; }
 .fftable th:last-child, .fftable td:last-child { width: 1%; white-space: nowrap; }
+
+/* --- labguides ------------------------------------------------------------ */
+.guides { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.guide-nav { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 12px; }
+.guide-nav button { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; }
+.guide-nav button small { color: var(--muted); font-size: 12px; }
+.guide-nav button:hover { background: var(--hover); }
+.guide-nav button.active { border-color: var(--accent, currentColor); background: var(--hover); }
+.guide-body { max-width: 900px; }
+.guide-body p { line-height: 1.55; margin: 10px 0; }
+.gbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.gout { margin-bottom: 10px; overflow-x: auto; }
+.tipbox { background: var(--inset); border-left: 3px solid var(--accent, currentColor); border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 13px; }
+.guide-body h3 { margin: 14px 0 8px; }
+@media (max-width: 800px) { .guides { grid-template-columns: 1fr; } .guide-nav { position: static; flex-direction: row; flex-wrap: wrap; } }

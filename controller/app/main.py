@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import auth, deployer, faz, fmg, jobs, scenarios, updates
+import yaml
 from .config import (DATA, GENERATED, HOST_FILE, ROOT, UPLOADS, generated_secret, get_state, inventory, load_host,
                      load_topology, nodes_by_role, template_vmid, update_state)
 from .hostctl import host
@@ -612,6 +613,11 @@ def scenario_catalog():
     return {"scenarios": cat["scenarios"], "presets": list(cat["traffic_presets"]),
             "sites": [{"id": s["id"], "name": s["name"], "role": s["role"], "device": s["fgt_name"]} for s in topo["sites"]],
             "branches": [s["lan"] for s in topo["sites"] if s["role"] == "spoke"]}
+
+
+@app.get("/api/guides")
+def guides():
+    return yaml.safe_load((ROOT / "lab" / "guides.yaml").read_text())["guides"]
 
 
 class ScenarioRun(BaseModel):

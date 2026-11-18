@@ -22,8 +22,7 @@ function goTo(tab) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.id === "tab-" + tab));
   if (tab === "setup") loadSettings();
   if (tab === "cockpit") loadCockpit();
-  if (tab === "fortiai") loadFortiAI();
-  if (tab === "access") loadAccess();
+  if (tab === "guides") loadGuides();
   if (tab === "updates") loadVersion();
 }
 $$("nav button").forEach((b) => b.addEventListener("click", () => goTo(b.dataset.tab)));
@@ -268,12 +267,6 @@ async function loadCockpit() {
   $("#m-preset").innerHTML = opt(CAT.presets, (p) => `<option>${p}</option>`);
   $("#m-hub").innerHTML = opt(CAT.sites.filter((s) => s.role === "hub"), (s) => `<option value="${s.id}">${esc(s.name)}</option>`);
   $("#h-dev").innerHTML = opt(CAT.sites, (s) => `<option value="${s.device}">${esc(s.name)}</option>`);
-  $("#scenarios").innerHTML = CAT.scenarios.map((sc) => `
-    <div class="demo-group card"><h2>${esc(sc.title)}</h2><p class="help">${esc(sc.story)}</p>
-      <div class="demo-actions"><button class="primary" data-run="${sc.id}">Start scenario</button>${sc.cleanup.length ? `<button data-clean="${sc.id}">Opruimen</button>` : ""}</div>
-      ${sc.fortiai.map(aiRow).join("")}</div>`).join("");
-  $$("[data-run]").forEach((b) => (b.onclick = () => runJob("/api/scenarios/run", { id: b.dataset.run, phase: "setup" })));
-  $$("[data-clean]").forEach((b) => (b.onclick = () => runJob("/api/scenarios/run", { id: b.dataset.clean, phase: "cleanup" })));
 }
 function aiRow(q) {
   return `<div class="ai-row"><div class="ai-head"><span class="tag">${esc(q.where)}</span><button class="ghost small" data-copy="${esc(q.prompt)}">Kopieer</button></div><div class="ai-prompt">${esc(q.prompt)}</div><div class="hint">${esc(q.expect)}</div></div>`;
@@ -299,33 +292,67 @@ $("#btn-links").onclick = async () => {
 };
 
 // --- FortiAI ------------------------------------------------------------------------------
-async function loadFortiAI() {
-  CAT = CAT || (await api("/api/scenarios"));
-  const draw = () => {
-    const q = ($("#ai-filter").value || "").toLowerCase();
-    $("#ai-prompts").innerHTML = CAT.scenarios.map((sc) => {
-      const rows = sc.fortiai.filter((x) => !q || (x.prompt + x.expect + x.where + sc.title).toLowerCase().includes(q));
-      return rows.length ? `<h3>${esc(sc.title)}</h3>${rows.map(aiRow).join("")}` : "";
-    }).join("");
+/* Labguides: hoofdstukken uit lab/guides.yaml met uitleg, actieknoppen, live checks en FortiAI-prompts */
+let GUIDES = null, curGuide = null;
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
+async function loadGuides() {
+  if (!GUIDES) { [GUIDES, CAT] = await Promise.all([api("/api/guides"), api("/api/scenarios")]); }
+  if (!curGuide) curGuide = GUIDES[0].id;
+  $("#guide-nav").innerHTML = GUIDES.map((g) => `<button class="${g.id === curGuide ? "active" : ""}" data-guide="${g.id}"><b>${esc(g.title)}</b><small>${esc(g.summary || "")}</small></button>`).join("");
+  $$("[data-guide]").forEach((b) => (b.onclick = () => { curGuide = b.dataset.guide; loadGuides(); window.scrollTo(0, 0); }));
+  const g = GUIDES.find((x) => x.id === curGuide);
+  const sc = g.scenario ? CAT.scenarios.find((s) => s.id === g.scenario) : null;
+  const step = (s, i) => {
+    if (s.text) return `<p>${md(s.text)}</p>`;
+    if (s.tip) return `<div class="tipbox">${md(s.tip)}</div>`;
+    if (s.buttons) return `<div class="gbtns">${s.buttons.map((b, k) => `<button class="${b.check ? "" : "primary"}" data-gs="${i}.${k}">${esc(b.label)}</button>`).join("")}</div><div class="gout" id="gout-${i}"></div>`;
+    if (s.ai && sc) return (s.ai === "all" ? sc.fortiai : s.ai.map((n) => sc.fortiai[n])).map(aiRow).join("");
+    if (s.access) return `<div id="g-access" class="access"><span class="muted">laden…</span></div>`;
+    if (s.fortiai_status) return `<div class="gbtns"><button id="btn-ai-status">FortiAI-status controleren</button></div><div id="ai-status" class="muted"></div>`;
+    if (s.docs) return `<div id="g-docs" class="doclist"></div>`;
+    return "";
   };
-  $("#ai-filter").oninput = draw; draw();
+  $("#guide-body").innerHTML = `<h2>${esc(g.title)}</h2>` + g.steps.map(step).join("");
+  $$("[data-gs]").forEach((b) => (b.onclick = () => {
+    const [i, k] = b.dataset.gs.split(".").map(Number), btn = g.steps[i].buttons[k], out = $("#gout-" + i);
+    if (btn.action) return act(btn.action);
+    out.innerHTML = '<span class="muted">ophalen…</span>';
+    if (btn.check === "links") showLinks(out); else showHealth(out, btn.device);
+  }));
+  if ($("#g-access")) loadAccess();
+  if ($("#g-docs")) loadDocs();
+  const st = $("#btn-ai-status"); if (st) st.onclick = aiStatus;
 }
-$("#btn-ai-status").onclick = async () => {
+async function showHealth(el, dev) {
+  try {
+    const r = await api("/api/sdwan/" + dev);
+    el.innerHTML = r.error ? `<span class="warn">${esc(r.error)}</span>` : r.health.length ? `<table class="kv"><tr><th>Health-check</th><th>Member</th><th>Status</th><th>Latency</th><th>Jitter</th><th>Loss</th></tr>${r.health.map((x) => `<tr><td>${esc(x.health_check)}</td><td>${esc(x.member)}</td><td>${stBadge(x.status === "alive" ? "running" : x.status)}</td><td>${esc(x.latency)}</td><td>${esc(x.jitter)}</td><td>${esc(x.loss)}</td></tr>`).join("")}</table>` : "Geen data.";
+  } catch (e) { el.innerHTML = `<span class="warn">${esc(e.message)}</span>`; }
+}
+async function showLinks(el) {
+  try {
+    const r = await api("/api/links");
+    el.innerHTML = r.error ? `<span class="warn">${esc(r.error)}</span>` : `<table class="kv"><tr><th>WAN-link</th><th>Site</th><th>Transport</th><th>Status</th><th>Impairment</th></tr>${Object.entries(r).map(([k, v]) => `<tr><td>${k}</td><td>${esc(v.site)}</td><td>${esc(v.transport)}</td><td>${v.up ? "up" : "<b>down</b>"}</td><td class="mono">${esc(v.netem || "-")}</td></tr>`).join("")}</table>`;
+  } catch (e) { el.innerHTML = `<span class="warn">${esc(e.message)}</span>`; }
+}
+async function aiStatus() {
   $("#ai-status").textContent = "controleren…";
   const r = await api("/api/fortiai/status");
   $("#ai-status").innerHTML = Object.entries(r).map(([k, v]) => `<div><b>${k}</b>: ${v.licensed === true ? '<span class="tag ok">FortiAI-contract aanwezig</span>' : v.licensed === false ? '<span class="tag warn">geen FortiAI-contract gevonden</span>' : '<span class="tag warn">onbekend</span>'}<pre class="logbox">${esc(v.raw)}</pre></div>`).join("");
-};
+}
 
 // --- toegang & docs ----------------------------------------------------------------------------
 async function loadAccess() {
-  if (!$("#access").children.length) $("#access").innerHTML = '<span class="muted">laden…</span>';
   const a = await api("/api/access");
   const row = (x) => `<div class="acc"><div class="acc-title"><b>${esc(x.name)}</b></div><div class="muted">${esc(x.note)}</div>
     <div class="acc-url">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>` : "<i class=\"muted\">nog geen adres (niet uitgerold?)</i>"}</div>
     <div class="acc-cred"><code>${esc(x.user)}</code>${pwCell(x.password)}</div></div>`;
-  $("#access").innerHTML = "<h3>Platformen en FortiGates</h3>" + a.platforms.map(row).join("") + "<h3>Traffic-Gen</h3>" + a.trafficgen.map(row).join("");
+  const el = $("#g-access");
+  if (el) el.innerHTML = "<h3>Platformen en FortiGates</h3>" + a.platforms.map(row).join("") + "<h3>Traffic-Gen</h3>" + a.trafficgen.map(row).join("");
+}
+async function loadDocs() {
   const docs = await api("/api/docs");
-  $("#docs").innerHTML = docs.map((d) => `<a href="#" class="doc" data-doc="${d.id}">${esc(d.title)}</a>`).join("");
+  $("#g-docs").innerHTML = docs.map((d) => `<a href="#" class="doc" data-doc="${d.id}">${esc(d.title)}</a>`).join("");
   $$("[data-doc]").forEach((l) => (l.onclick = async (e) => { e.preventDefault(); viewer(l.textContent, await api("/api/docs/" + l.dataset.doc)); }));
 }
 
