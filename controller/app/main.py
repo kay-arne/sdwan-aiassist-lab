@@ -572,7 +572,7 @@ def fgt_monitor(q: FgtMonitor):
 
 FGT_CLI_PREFIXES = ("diagnose sys sdwan ", "get router info ", "diagnose vpn ike gateway", "diagnose firewall proute",
                     "get system status", "show system sdwan", "show full-configuration system sdwan",
-                    "diagnose sys link-monitor", "diagnose test application sdwand", "diagnose debug application sdwan")
+                    "diagnose sys link-monitor", "execute ping ", "diagnose sniffer packet", "diagnose test application sdwand", "diagnose debug application sdwan")
 FGT_CLI_ALLOWED = ()                 # (verouderd; zie FGT_CLI_PREFIXES)
 
 
