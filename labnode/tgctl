@@ -54,7 +54,10 @@ def main():
                 break
             time.sleep(1)
         nets = json.load(open("/etc/sdwlab/networks.json"))
-        call("/api/network/apply", {"networks": nets})          # bronnetwerken (her)activeren; zonder lijst wist Traffic-Gen ze
+        try:
+            call("/api/network/apply", {"networks": nets})      # bronnetwerken (her)activeren; zonder lijst wist Traffic-Gen ze
+        except SystemExit as e:                                 # 409 = test nog bezig: netwerken staan er dan al, doorgaan
+            print("waarschuwing:", e, file=sys.stderr)
         print(json.dumps(call("/api/start", body)))
     elif a.cmd == "stop":
         print(json.dumps(call("/api/stop", {})))
