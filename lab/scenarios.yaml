@@ -53,8 +53,8 @@ scenarios:
       - {do: impair, site: br1, transport: A, delay: 150, jitter: 40, loss: 6}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Show SD-WAN SLA events for FGT-BR1, past 30 minutes.", expect: "Loganalyse op SD-WAN-logs (SLA-wissels, health-check DC_SLA)"}
-      - {where: FortiAnalyzer, prompt: "Filter traffic logs for FGT-BR1, application Microsoft.Teams, past hour. Which interface was used?", expect: "Sessies eerst over port2, na de impairment over port3 (appnaam hangt van de signature af)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of sessions by outgoing interface for FGT-BR1, past hour.", expect: "Grafiek van het verkeer per uitgaande interface; tijdens de brownout zie je het verschuiven van port2 naar port3"}
+      - {where: FortiAnalyzer, prompt: "Show top applications by sessions for FGT-BR1, past hour.", expect: "Tabel met applicaties (Teams, Outlook, enz.) en analyse"}
       - {where: FortiAnalyzer, prompt: "Generate a bar chart of sessions per outgoing interface for FGT-BR1, past hour.", expect: "Grafiek laat het verschuiven van underlay A naar B zien"}
       - {where: FortiManager, prompt: "VPN Assistant: check the status of all IPsec tunnels on FGT-BR1.", expect: "VPN Assistant: kies FGT-BR1 in de widget; tunnels over underlay A vertraagd of down, VPN2 gezond"}
     cleanup:
@@ -126,7 +126,7 @@ scenarios:
       - {do: sleep, seconds: 240}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Show top threats for FGT-BR2, past hour.", expect: "Adressen plus korte analyse en mitigatie-advies"}
-      - {where: FortiAnalyzer, prompt: "Perform a security reputation check for <IP uit het vorige antwoord>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); vraag daarna om mitigatie"}
+      - {where: FortiAnalyzer, prompt: "Perform a security reputation check for <IP uit het vorige antwoord>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); 'geen reputatiedata' betekent onbekend of niet kwaadaardig. Vraag daarna om mitigatie"}
       - {where: FortiAnalyzer, prompt: "Generate a pie chart of source IPs for FGT-BR2 traffic, past hour.", expect: "Taartdiagram met Traffic-Gen-bronnen 10.12.0.50-55"}
       - {where: FortiAnalyzer, prompt: "Create an event handler for web filter blocks on FGT-BR2.", expect: "Event handler met naam en regelsamenvatting"}
       - {where: FortiAnalyzer, prompt: "List incidents created in the past 24 hours.", expect: "Incidenten uit event handlers (kan leeg zijn); vraag door naar details en affected endpoints"}
@@ -144,8 +144,8 @@ scenarios:
       - {do: traffic, site: br1, preset: normal}
       - {do: iperf, site: br1, to: srv-ams, seconds: 60, streams: 4}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Show top destinations by bytes for FGT-BR1, past 15 minutes.", expect: "10.21.0.10 (iperf3, poort 5201) bovenaan"}
-      - {where: FortiAnalyzer, prompt: "Show the 5 largest sessions by bytes sent for FGT-BR1, past 15 minutes.", expect: "De iperf3-sessie (poort 5201) staat bovenaan"}
+      - {where: FortiAnalyzer, prompt: "Show top destinations by bytes for FGT-BR1, past hour.", expect: "10.21.0.10 (iperf3, poort 5201) bovenaan"}
+      - {where: FortiAnalyzer, prompt: "Show top destinations by bytes for FGT-BR1, past hour.", expect: "10.21.0.10 en 10.22.0.10 (datacenter) bovenaan; iperf3-verkeer valt hierin op"}
     cleanup:
       - {do: traffic_stop}
 
@@ -173,9 +173,9 @@ scenarios:
       - {do: traffic, site: all, preset: normal}
       - {do: sleep, seconds: 120}
     fortiai:
-      - {where: FortiAnalyzer, prompt: "Generate a bar chart of the top 10 applications by session count, past 24 hours.", expect: "Management-grafiek; download via Download Chat History (HTML/PNG)"}
-      - {where: FortiAnalyzer, prompt: "Generate a pie chart of the top 10 source IPs by session count, past 24 hours.", expect: "Verdeling over de Traffic-Gen-bronnen"}
-      - {where: FortiAnalyzer, prompt: "Generate report: SD-WAN for FGT-BR1, FGT-BR2, FGT-BR3, past 24 hours.", expect: "Bestaande sjablonen; een vage vraag (bijv. PCI-rapport) kost extra tokens"}
+      - {where: FortiAnalyzer, prompt: "Generate a bar chart of the top 10 applications by session count for FGT-BR1, past 24 hours.", expect: "Management-grafiek; download via Download Chat History (HTML/PNG)"}
+      - {where: FortiAnalyzer, prompt: "Generate a pie chart of the top 10 source IPs by session count for FGT-BR1, past 24 hours.", expect: "Verdeling over de Traffic-Gen-bronnen"}
+      - {where: FortiAnalyzer, prompt: "Show top applications by bytes for FGT-BR1, past 24 hours.", expect: "Tabel met analyse; voor een volledig rapport gebruik je daarna Reports in FortiAnalyzer"}
     cleanup:
       - {do: traffic_stop}
 
@@ -190,7 +190,7 @@ scenarios:
       - {do: sleep, seconds: 240}
     fortiai:
       - {where: FortiAnalyzer, prompt: "Please help fetch the latest incident.", expect: "Incidentdetails met het getroffen IP (er moet een incident bestaan: maak er een in Incidents & Events vanuit een event)"}
-      - {where: FortiAnalyzer, prompt: "Check the reputation of <publiek IP uit het incident>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); vraag daarna om mitigatie-advies"}
+      - {where: FortiAnalyzer, prompt: "Check the reputation of <publiek IP uit het incident>.", expect: "Reputatie via FortiGuard en VirusTotal (internet nodig); 'geen reputatiedata' betekent onbekend of niet kwaadaardig. Vraag daarna om mitigatie-advies"}
       - {where: FortiAnalyzer, prompt: "Show top source IPs by sessions for FGT-BR2, past hour.", expect: "Log-analyse: andere bronnen die naar dezelfde bestemming praten (hier de Traffic-Gen-bronnen 10.12.0.5x)"}
       - {where: FortiAnalyzer, prompt: "Open Threat Hunting.", expect: "FortiAI opent de pagina zonder dat je het gesprek verlaat"}
       - {where: FortiAnalyzer, prompt: "Open Log View.", expect: "FortiAI opent Log View vanuit het gesprek"}
