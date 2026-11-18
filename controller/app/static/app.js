@@ -298,7 +298,7 @@ const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`
 async function loadGuides() {
   if (!GUIDES) { [GUIDES, CAT] = await Promise.all([api("/api/guides"), api("/api/scenarios")]); }
   if (!curGuide) curGuide = GUIDES[0].id;
-  $("#guide-nav").innerHTML = GUIDES.map((g) => `<button class="${g.id === curGuide ? "active" : ""}" data-guide="${g.id}"><b>${esc(g.title)}</b><small>${esc(g.summary || "")}</small></button>`).join("");
+  $("#guide-nav").innerHTML = `<button class="access-btn" data-access title="Adressen en wachtwoorden van alle lab-onderdelen"><b>Toegang</b><small>URL's en inloggegevens</small></button>` + GUIDES.map((g) => `<button class="${g.id === curGuide ? "active" : ""}" data-guide="${g.id}"><b>${esc(g.title)}</b><small>${esc(g.summary || "")}</small></button>`).join("");
   $$("[data-guide]").forEach((b) => (b.onclick = () => { curGuide = b.dataset.guide; loadGuides(); window.scrollTo(0, 0); }));
   const g = GUIDES.find((x) => x.id === curGuide);
   const sc = g.scenario ? CAT.scenarios.find((s) => s.id === g.scenario) : null;
@@ -307,7 +307,7 @@ async function loadGuides() {
     if (s.tip) return `<div class="tipbox">${md(s.tip)}</div>`;
     if (s.buttons) return `<div class="gbtns">${s.buttons.map((b, k) => `<button class="${b.check ? "" : "primary"}" data-gs="${i}.${k}">${esc(b.label)}</button>`).join("")}</div><div class="gout" id="gout-${i}"></div>`;
     if (s.ai && sc) return (s.ai === "all" ? sc.fortiai : s.ai.map((n) => sc.fortiai[n])).map(aiRow).join("");
-    if (s.access) return `<div id="g-access" class="access"><span class="muted">laden…</span></div>`;
+    if (s.access) return `<div class="gbtns"><button data-access>Toegang openen</button></div>`;
     if (s.fortiai_status) return `<div class="gbtns"><button id="btn-ai-status">FortiAI-status controleren</button></div><div id="ai-status" class="muted"></div>`;
     if (s.docs) return `<div id="g-docs" class="doclist"></div>`;
     return "";
@@ -319,7 +319,6 @@ async function loadGuides() {
     out.innerHTML = '<span class="muted">ophalen…</span>';
     if (btn.check === "links") showLinks(out); else showHealth(out, btn.device);
   }));
-  if ($("#g-access")) loadAccess();
   if ($("#g-docs")) loadDocs();
   const st = $("#btn-ai-status"); if (st) st.onclick = aiStatus;
 }
@@ -342,14 +341,15 @@ async function aiStatus() {
 }
 
 // --- toegang & docs ----------------------------------------------------------------------------
-async function loadAccess() {
+async function openAccess() {
+  viewer("Toegang", '<div class="access pad"><span class="muted">laden…</span></div>');
   const a = await api("/api/access");
   const row = (x) => `<div class="acc"><div class="acc-title"><b>${esc(x.name)}</b></div><div class="muted">${esc(x.note)}</div>
     <div class="acc-url">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a>` : "<i class=\"muted\">nog geen adres (niet uitgerold?)</i>"}</div>
     <div class="acc-cred"><code>${esc(x.user)}</code>${pwCell(x.password)}</div></div>`;
-  const el = $("#g-access");
-  if (el) el.innerHTML = "<h3>Platformen en FortiGates</h3>" + a.platforms.map(row).join("") + "<h3>Traffic-Gen</h3>" + a.trafficgen.map(row).join("");
+  viewer("Toegang", '<div class="access pad"><h3>Platformen en FortiGates</h3>' + a.platforms.map(row).join("") + "<h3>Traffic-Gen</h3>" + a.trafficgen.map(row).join("") + "</div>");
 }
+document.addEventListener("click", (e) => { if (e.target.closest("[data-access]")) openAccess(); });
 async function loadDocs() {
   const docs = await api("/api/docs");
   $("#g-docs").innerHTML = docs.map((d) => `<a href="#" class="doc" data-doc="${d.id}">${esc(d.title)}</a>`).join("");

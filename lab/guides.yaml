@@ -16,7 +16,9 @@ guides:
           vanuit **FortiManager** en gelogd naar **FortiAnalyzer**. **Traffic-Gen** in elke branch genereert verkeer; **FortiAI-Assist**
           in FortiManager en FortiAnalyzer beantwoordt vragen over wat er gebeurt. Elk hoofdstuk hiernaast is een demo met knoppen om
           de situatie te veroorzaken en de vragen die je daarna stelt.
-      - text: "**Stap 1: inloggen.** Dit zijn de adressen en gegevens van het lab."
+      - text: >
+          **Stap 1: inloggen.** De adressen en inloggegevens van alle onderdelen open je op elk moment met de knop **Toegang** linksboven
+          in deze guide.
       - access: true
       - text: >
           **Stap 2: achtergrondverkeer.** Na de uitrol draait er continu een mix van zakelijk verkeer, streaming en ongewenst verkeer (webfilter,
